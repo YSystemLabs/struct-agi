@@ -1,0 +1,15 @@
+# Downloaded datasets
+datasets/raw/
+
+# Generated previews and galleries
+outputs/
+
+# Python cache and local tooling noise
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
