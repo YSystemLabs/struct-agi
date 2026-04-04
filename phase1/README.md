@@ -2,6 +2,8 @@
 
 本目录对应第一阶段工作区，目标是围绕 ARC-AGI-2 与 ConceptARC 建立最小可证伪的结构学习闭环。
 
+当前状态：Step 1 已完成“最小闭环已实施冻结”的验收；Step 2 尚未开始。Step 1 当前在 Copy1-6 与 Center1-6 的 12 个训练任务上得到 6 个精确求解、6 个 `ABSTRACTION_FAIL`，结论偏积极但不夸大，意味着主链路已跑通，后续应进入 Step 2 而不是继续在 Step 1 内扩边界。
+
 ## 目录结构
 
 ```text
@@ -14,9 +16,19 @@ phase1/
 │       └── ConceptARC/
 ├── docs/
 │   ├── 第一阶段研究计划-0v1.md
-│   └── 第一阶段算法架构-0v4.md
+│   ├── 第一阶段算法架构-0v4.md
+│   └── step1/
+│       ├── Step1实现设计-0v1.md
+│       ├── Step1最小接口与任务清单附录-0v1.md
+│       ├── Step1实现任务分解清单-0v1.md
+│       └── Step1实验与验收报告-0v1.md
+├── src/
+│   └── step1/
+├── tests/
+│   └── step1/
 ├── outputs/
-│   └── previews/
+│   ├── previews/
+│   └── step1/
 └── scripts/
     ├── build_render_gallery.py
     └── render_task_json.py
@@ -26,8 +38,19 @@ phase1/
 
 - `datasets/raw/`：外部下载的原始数据，不纳入 git。
 - `docs/`：阶段计划、设计说明、实验记录等文档。
+- `docs/step1/`：Step 1 冻结边界、实现设计、接口附录、实验与验收报告。
+- `src/step1/`：Step 1 当前实现代码，按 Layer 1-5、runner、utils 组织。
+- `tests/step1/`：Step 1 单元测试与接口冻结测试。
 - `scripts/`：阶段内会反复使用的工具脚本。
+- `outputs/step1/`：Step 1 debug bundle、attributions、summary 等实验输出。
 - `outputs/`：渲染结果、gallery、临时实验产物等可再生输出。
+
+## Step 1 关键入口
+
+- 研究计划：[docs/第一阶段研究计划-0v1.md](docs/第一阶段研究计划-0v1.md)
+- 总架构：[docs/第一阶段算法架构-0v4.md](docs/第一阶段算法架构-0v4.md)
+- Step 1 实验与验收报告：[docs/step1/Step1实验与验收报告-0v1.md](docs/step1/Step1实验与验收报告-0v1.md)
+- Step 1 运行摘要：[outputs/step1/reports/summary.json](outputs/step1/reports/summary.json)
 
 ## 脚本
 
@@ -54,6 +77,20 @@ python3 phase1/scripts/build_render_gallery.py phase1/outputs/previews/all
 
 ```bash
 python3 phase1/scripts/render_task_json.py phase1/datasets/raw/ARC-AGI-2/data/training -o phase1/outputs/previews/training-sample --max-files 20
+```
+
+### 4. 运行 Step 1 批量实验
+
+```bash
+python3 -m phase1.src.step1.runner.batch_runner
+```
+
+运行后会在 `phase1/outputs/step1/reports/` 下生成 `summary.json`、`summary.md` 与 `attributions.json`。
+
+### 5. 运行 Step 1 测试
+
+```bash
+python3 -m unittest discover -s phase1/tests/step1
 ```
 
 ## 本地预览

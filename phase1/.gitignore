@@ -9,7 +9,21 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# Local environments and scratch files
+.venv/
+venv/
+*.log
 
 # OS/editor noise
 .DS_Store
 Thumbs.db
+.idea/
+.vscode/
+.ipynb_checkpoints/
