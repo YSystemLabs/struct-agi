@@ -31,7 +31,7 @@ ALLOWED_FAILURE_TYPES: tuple[str, ...] = (
     "ABSTRACTION_FAIL",
     "EXECUTION_FAIL",
 )
-STEP1_BEAM_SIZE = 32
+STEP1_BEAM_SIZE = 64
 
 
 def _task_tuple(concept: str, task_id: str) -> tuple[str, str, str]:

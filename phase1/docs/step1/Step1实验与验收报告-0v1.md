@@ -23,8 +23,8 @@ Step 1 运行配置如下：
 1. 分割方案固定为 cc4、cc8、whole_grid。
 2. 原语范围固定为 copy、translate、rotate、flip、delete、recolor、fill、crop。
 3. 关系范围固定为 relative_position 与 alignment；包含、层级、repeat、construct_grid 等能力全部推迟到 Step 2。
-4. Layer 3 使用最小 beam 机制：先按轻量 pre_priority 预排序，再截到 STEP1_BEAM_SIZE = 32 个 hypothesis 进入执行评估。
-5. pre_priority 在 Step 1 中不是完整 AST 语义分析，而是字符串级 proxy：用 program 文本中的 target=/color= 计数近似 attr_ref_ratio，用分号数近似 ast_depth。
+4. Layer 3 使用最小 beam 机制：先按轻量 pre_priority 预排序，再截到 STEP1_BEAM_SIZE = 64 个 hypothesis 进入执行评估。
+5. pre_priority 在 Step 1 中不是完整 AST 语义分析，而是字符串级 proxy：用 program 文本中的 target=/color= 及符号参数（input_width 等）计数近似 attr_ref_ratio，用分号数（排除 copy block 结构性分隔符）近似 ast_depth。
 
 ## 3. 关键实现与收口结果
 

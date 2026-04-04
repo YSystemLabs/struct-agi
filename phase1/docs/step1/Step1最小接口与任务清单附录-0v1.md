@@ -372,7 +372,7 @@ Step 1 采用标准版遥测，每个任务至少记录以下字段：
 | pixel_accuracy | 像素级精度 |
 | failure_type | 失败归因标签 |
 
-Step 1 当前 beam 是最小实现：先按字符串级 `pre_priority` proxy 对 hypothesis 预排序，再取前 `STEP1_BEAM_SIZE = 32` 个进入执行评估。Step 1 不要求记录完整 Top-K 快照、完整候选程序列表或扩展建议。
+Step 1 当前 beam 是最小实现：先按字符串级 `pre_priority` proxy 对 hypothesis 预排序，再取前 `STEP1_BEAM_SIZE = 64` 个进入执行评估。Step 1 不要求记录完整 Top-K 快照、完整候选程序列表或扩展建议。
 
 由于 Step 1 不启用排序模型，主架构 `search_stats` 中与概念组权重相关的字段在本阶段不要求记录。
 

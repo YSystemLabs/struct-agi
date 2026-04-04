@@ -7,7 +7,7 @@ from phase1.src.step1.layer3.scoring import description_length, mismatch_sum, pr
 
 
 _RENDERED_TRAIN_OUTPUTS: dict[str, list[Grid]] = {}
-_EMPTY_COPY_BLOCK_PENALTY = 1
+_EMPTY_COPY_BLOCK_PENALTY = 10
 
 
 def hypothesis_cache_key(hypothesis: Hypothesis) -> str:
@@ -99,7 +99,7 @@ def select_best_hypothesis(
                 "description_length": description_length(representative),
                 "heuristic_penalty": heuristic_penalty,
                 "penalty_reasons": penalty_reasons,
-                "fallback_primary_score": mismatch + heuristic_penalty,
+                "fallback_primary_score": mismatch + 1.0 * description_length(representative) + heuristic_penalty,
             }
         )
 
@@ -118,8 +118,8 @@ def select_best_hypothesis(
             representatives,
             key=lambda item: (
                 mismatch_sum(rendered_train_outputs.get(hypothesis_cache_key(item), []), train_outputs)
+                + 1.0 * description_length(item)
                 + _fallback_penalty(item)[0],
-                description_length(item),
                 pre_priority(item),
                 item.program,
             ),

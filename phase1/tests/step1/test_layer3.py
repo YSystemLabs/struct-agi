@@ -113,7 +113,8 @@ class Layer3Tests(unittest.TestCase):
             constraint_subset={"strong": ["size_rule:preserve_input_size"], "weak": []},
             program="translate[target=obj0,dx=2]",
         )
-        self.assertGreater(description_length(hypothesis), len(hypothesis.program))
+        # §5.3.2: plan(1) + AST nodes(1) + strong(1) + constants("0","2"=2) = 5
+        self.assertEqual(5, description_length(hypothesis))
         self.assertEqual((-0.25, 1), pre_priority(hypothesis))
 
     def test_equivalence_grouping_preserves_members(self) -> None:
@@ -178,7 +179,7 @@ class Layer3Tests(unittest.TestCase):
             clear_rendered_train_outputs()
         self.assertEqual(second.program, selected.program)
         scored = {entry["program"]: entry for entry in debug["fallback_scores"]}
-        self.assertEqual(1, scored[first.program]["heuristic_penalty"])
+        self.assertEqual(10, scored[first.program]["heuristic_penalty"])
         self.assertEqual("empty_copy_block", scored[first.program]["penalty_reasons"][0]["reason"])
 
     def test_hypothesis_beam_uses_pre_priority_and_reports_saturation(self) -> None:
