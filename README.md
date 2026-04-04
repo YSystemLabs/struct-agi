@@ -32,7 +32,7 @@ structuralist-agi/
     ├── README.md                  # Phase 1 详细说明与脚本用法
     ├── docs/
     │   ├── 第一阶段研究计划-0v1.md  # 可执行研究计划
-    │   └── 第一阶段算法架构-0v3.md  # 算法架构设计（当前版本）
+    │   └── 第一阶段算法架构-0v4.md  # 算法架构设计（当前版本）
     ├── datasets/raw/              # ARC-AGI-2, ConceptARC 原始数据
     ├── scripts/                   # 渲染、gallery 构建等工具脚本
     └── outputs/                   # SVG 预览、gallery 等可再生输出
@@ -44,7 +44,7 @@ structuralist-agi/
 | --- | --- |
 | [研究宣言](研究宣言-0v2.md) | 为什么需要结构主义路径，范畴论视角的动机 |
 | [Phase 1 研究计划](phase1/docs/第一阶段研究计划-0v1.md) | 研究边界、假设、方法框架、评测指标、成功标准 |
-| [Phase 1 算法架构](phase1/docs/第一阶段算法架构-0v3.md) | 五层架构、DSL、MDL 筛选、渐进增长、知识改写 |
+| [Phase 1 算法架构](phase1/docs/第一阶段算法架构-0v4.md) | 五层架构、DSL、MDL 筛选、渐进增长、知识改写 |
 | [Phase 1 README](phase1/README.md) | 目录约定、脚本用法、本地预览方法 |
 
 ## 数据集
