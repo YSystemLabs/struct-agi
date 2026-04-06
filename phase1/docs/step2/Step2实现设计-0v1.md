@@ -2,7 +2,7 @@
 
 > 版本：v0.1
 >
-> 状态：Step 2a 已实施（8/12，未达 ≥9/12 门槛；详见 §6.1）
+> 状态：Step 2 已实施到 Step 2b 验收阶段（Step 2a 为 8/12、有条件通过；Step 2b 已验收；整体未最终收口）
 >
 > 作用：定义 Step 2 的实现顺序、各层变更设计、测试策略与验收门槛。
 
@@ -404,7 +404,7 @@ Step 2b 的 4 个新概念组按以下顺序引入：
 从易到难的顺序理由：
 
 1. **MoveToBoundary** 最接近现有 translate 能力，只需补 boundary-aware 位移参数。
-2. **ExtendToBoundary** 需要新原语但变换模式简单（单方向延伸）。
+2. **ExtendToBoundary** 需要新原语，且方向解析要从常量方向放宽到封闭白名单的参数化方向，但仍限制在轴向延伸和最近对象边界语义内，不进入对角/放射式扩展。
 3. **ExtractObjects** 需要前景/背景分离和主体选择，依赖 bg_fg 分割在前两组上验证稳定。
 4. **CleanUp** 最复杂——需要噪声识别、可能需要输出尺寸模式切换。
 
@@ -444,9 +444,36 @@ translate[target=X, dx=to_nearest_object_dx, dy=to_nearest_object_dy]
 
 **ExtendToBoundary**：
 ```text
-extend_to_boundary[target=X, direction=D]
+extend_to_boundary[target=X, source=S, direction=P]
 ```
-其中 `direction ∈ {up, down, left, right, nearest_boundary}`。
+其中 `source` 与 `direction` 都使用封闭白名单参数。
+
+边界说明：`source` 与 `direction` 在单个假设内必须是常量 token，不允许按训练对或测试对动态切换。因此，像 ETB1 这类“同一统一规律需要根据对象几何关系在不同 pair 上改选 `center_row/right` 或 `center_col/down`”的任务，应判定为当前 7B 的 overflow，而不是继续通过 beam、scoring 或 target selector 微调来修补。
+
+ETB4 的处理边界与 ETB1 不同：允许在 `target=X` 层新增一个封闭单对象选择器 `gap_thinner_object`，语义限定为“在两对象、单轴 gap 布局中，选择沿 gap 轴更细的对象作为 extend target”。这属于 target 选择层补全，不改写 `extend_to_boundary` 的 `source/direction` 白名单，也不引入 pair-conditioned direction 语义。
+
+ETB5 的边界比 ETB1 更硬：其训练样本需要对角/放射式扩张，而当前 7B 只允许轴向延伸。实际分析结果也表明，ETB5 的候选池中 `extend_to_boundary` 假设数为 0，Layer 2 只会把它识别成 `copy / boundary_translate / fill / delete` 一类差异，因此应直接登记为 7B overflow，不再在本阶段继续尝试 beam、selector 或 source/direction 微调。
+
+ETB6 与 ETB5 同类，也应直接登记为 7B overflow。它虽然出现了 beam 饱和，但根因并不是 beam 截断，而是任务所需的“沿对角方向延伸至边界”不在当前 DirectionSpec 白名单内；`match_extend_to_boundary_directions()` 只能枚举轴向 token，因此不会为 ETB6 生成 `extend_to_boundary` 候选，最终只会退化为 `crop / copy / translate` 一类近似解释。
+
+据此，冻结当前 7B 语义边界后的阶段上界应明确记为 **2/6**：仅 ETB2（beam keepalive）与 ETB4（封闭 target selector）在不突破边界的前提下可稳定落地；ETB1、ETB3、ETB5、ETB6 都不应再继续作为 Step 2b 内部修补目标。
+
+这 4 个未解任务对应的 Step 3 能力缺口可归并为一段统一结论：ETB1 需要按 pair 几何关系条件化选择 `source/direction`；ETB3 需要超出当前轴向 extend 的对角/构造式传播；ETB5 与 ETB6 需要对角或放射式边界延伸。它们的共同指向都是 Step 3 级别的“几何条件化方向策略 + 非轴向构造式扩张”能力，而不是继续增补 Step 2b 的白名单 token。
+
+`source` 允许：
+
+- `full_boundary`
+- `top_edge / bottom_edge / left_edge / right_edge`
+- `center_row / center_col`
+
+`direction` 允许：
+
+- 常量方向：`up / down / left / right`
+- 画布边界方向：`nearest_boundary`
+- 最近对象边界方向：`to_nearest_object_boundary`
+- 双向轴延伸：`horizontal_both / vertical_both`
+
+Step 2b 仍不放开对角延伸、放射式扩张、按样例动态生成新方向 token，也不放开任意掩码式 source 选择。
 
 **ExtractObjects**：
 ```text
@@ -454,11 +481,25 @@ delete[target=noise_objects] ; crop[target=largest_object, mode=tight_bbox]
 crop[target=largest_object, mode=tight_bbox]
 ```
 
+当前 7C 验证结果已经达到最低门槛 **2/6**。现阶段的 exact pass 来自更保守的通用结构：ExtractObjects1 选中 `crop[target=largest_object,mode=tight_bbox]`，ExtractObjects3 选中单对象删除路径并配合 `crop_selected_bbox` 收口；这说明在当前代码基线下，`largest_object + crop_selected_bbox` 已足以覆盖最小验收目标，而显式 `delete[target=noise_objects] ; crop[...]` 仍保留为允许模板，但不是当前达标所必需的前提。
+
 **CleanUp**：
 ```text
 delete[target=noise_objects]
 delete[target=noise_objects] ; crop[target=largest_object, mode=tight_bbox]
 ```
+
+当前 7D 的基线验证结果仍是 **0/6**。更关键的是，直接脱离搜索流程执行这两条允许模板，在现有 `cc4 / cc8 / whole_grid / bg_fg` 分割与当前 executor 语义下也仍然是 **0/6**，最佳训练像素准确率大多只停在约 **0.89-0.95**。这说明 7D 的当前阻塞点并不只是“候选没放进 sketches”或“beam 没保活”。
+
+当前已确认的能力缺口有两层：
+1. `noise_objects` 的临时面积阈值启发式（`area < median/4`）在许多 CleanUp 任务上会返回空集，或者在大量单像素/碎片对象并存时缺乏稳定性。
+2. 即使手工指定了应删除的噪声对象，当前 `delete[target=noise_objects]` 的执行语义也缺少“删除后恢复结构化底纹”的能力；它只能在现有对象渲染规则下去掉像素，无法稳定重建条纹、棋盘、嵌套主体周围的原有局部结构。
+
+因此，7D 目前不应被当作“再补一个模板就能收口”的子阶段，而应明确记为：需要更强的 `noise_objects` 选择稳定性，以及面向结构化背景的局部修复/恢复语义；在这两点未补齐前，不做达标宣告。
+
+补充红线：即使后续决定在 Step 2 中尝试引入“局部修复/恢复语义”，它也只能依赖局部上下文一致性，不能依赖任务名、颜色特判、图样类别特判，也不能按样例切换规则。若某一版实现必须借助这些信息才能成立，则应直接记为 Step 3 能力，而不是在 Step 2 中继续扩边界。
+
+补充实验结论：在上述红线下，已做过一轮受限原型验证。原型只允许基于当前 plan 的对象统计选择噪声对象，并只允许用行/列/邻域一致性做局部恢复。结果最好只能达到 **1/6** exact，且唯一稳定精确的是 CleanUp2。这说明“局部一致性修复”方向并非完全错误，但当前证据仍不足以支持把它工程化接入 Step 2 主线；更合理的口径是保留这 1 例作为实验信号，而不是把它当作已验证的 7D 能力。
 
 以上为代表性模板，实际候选由 Layer 2 的差异识别驱动枚举。
 
@@ -468,28 +509,43 @@ delete[target=noise_objects] ; crop[target=largest_object, mode=tight_bbox]
 
 若新概念组的候选空间显著大于 Copy/Center，可能需要上调 `STEP2_BEAM_SIZE`。具体数值在实现阶段根据 beam_saturated 统计决定。
 
+对 ExtendToBoundary 允许一条更窄的局部搜索保活策略：当 `beam_saturated=true`、全局 top-`STEP2_BEAM_SIZE` 中完全没有 `extend_to_boundary`、但排序靠后的候选中存在 `extend_to_boundary` 时，允许在不改动全局 `pre_priority` 的前提下，额外追加 **1 个** `extend_to_boundary` keepalive 槽位进入评估。该策略只解决“正确原语家族整体缺席 beam”的问题，不得改写 7B 的 source/direction 语义，也不得推广成任意原语的通用加权捷径。
+
 ### 8.4 Layer 4 增量
 
 #### 8.4.1 extend_to_boundary 执行逻辑
 
 ```text
-输入：对象 O、方向 D、网格 G
+输入：对象 O、source 参数 S、方向参数 P、网格 G
 输出：延伸后的对象 O'
 
-1. 确定延伸方向 D 对应的坐标轴和正负方向。
-2. 从 O 的边界像素出发，沿 D 方向逐像素扩展。
-3. 终止条件：
-   a. 触及网格边界（row < 0 或 row >= height 或 col < 0 或 col >= width）。
-   b. 触及另一个非背景对象的像素。
-4. 将扩展的像素集合并入 O，得到 O'。
-5. O' 的颜色沿用 O 的 dominant_color。
+1. 先根据 source 参数 S 从 O 中选出候选源像素集合：
+   a. `full_boundary`：O 的全部像素。
+   b. `top_edge / bottom_edge / left_edge / right_edge`：分别取 bbox 对应边上的像素。
+   c. `center_row / center_col`：分别取 bbox 中心最近的行或列；若偶数宽高导致并列，固定取索引较小者。
+2. 再把方向参数 P 解析为一个或两个轴向射线：
+    a. `up / down / left / right`：直接解析为单一射线。
+    b. `nearest_boundary`：计算对象到上下左右四个画布边界的距离，选择最近方向；等距时固定按 `up > down > left > right`。
+    c. `to_nearest_object_boundary`：在除 O 之外的对象中选择最近对象 N，再取“从 O 指向 N 最近边界”的轴向方向；并列时优先正交投影有重叠者，再按对象 id 字典序，最后按 `up > down > left > right`。
+    d. `horizontal_both`：解析为 `left + right` 两条独立射线。
+    e. `vertical_both`：解析为 `up + down` 两条独立射线。
+3. 对每条射线，只在 source 集合内部选取该方向上的前沿像素作为起点，再沿该方向逐像素扩展。
+4. 每条射线独立应用终止条件：
+    a. 触及网格边界（row < 0 或 row >= height 或 col < 0 或 col >= width）。
+    b. 触及另一个非背景对象的像素。
+5. 将所有射线新增的像素与 O 原像素求并集，得到 O'。
+6. O' 的颜色沿用 O 的 dominant_color；若对象携带 `pixel_colors`，则新增像素沿用其延伸源边界像素的颜色映射。
 ```
 
-`nearest_boundary` 方向：计算对象到上下左右四个画布边界的距离，选择最近的方向延伸。
+补充边界：Step 2b 的 `extend_to_boundary` 只允许上述封闭白名单的 `source` 与 `direction` 参数，不允许 diagonal、radial、flood-fill 式延伸，也不允许把 source/direction 解析外包给 ForEach/If/表达式树。
 
 #### 8.4.2 渲染规则
 
 Step 2b 沿用 Step 2a 的渲染规则（含动态背景色）。`crop_selected_bbox` 在 ExtractObjects 上的行为：输出画布尺寸 = 选中主体对象的 bbox 尺寸，背景色填充后叠加该对象的像素。
+
+补充说明：这一渲染规则对 ExtractObjects 已足够，但对当前 7D / CleanUp 仍不充分。CleanUp 的若干训练任务要求在删除噪声后恢复非均匀底纹或主体边缘局部结构，而不是简单暴露统一 `bg_color`；这正是当前 7D 保持 0/6 的核心原因之一。
+
+进一步约束：若后续真的为 CleanUp 增加修复语义，它必须表现为封闭、统一的局部一致性规则，例如固定的行/列/邻域一致性 tie-break，而不能演化成“看到条纹用一套、看到棋盘用一套、看到某种颜色再换一套”的外观驱动补丁。
 
 ### 8.5 Layer 5 增量
 
@@ -526,8 +582,8 @@ STEP2_DIAGNOSTIC_TASKS = [
 | Center（Step 2a） | 6 | ≥6 | 从 Step 1 的 5/6 提升，Center3 为 bg_fg 高信心修复目标。**实际 6/6** |
 | MoveToBoundary | 6 | ≥3 | 初始目标 |
 | ExtendToBoundary | 6 | ≥3 | 初始目标 |
-| ExtractObjects | 6 | ≥2 | 初始目标，难度较高 |
-| CleanUp | 6 | ≥2 | 初始目标，难度最高 |
+| ExtractObjects | 6 | ≥2 | 初始目标，难度较高。**当前 2/6**（ExtractObjects1 + ExtractObjects3） |
+| CleanUp | 6 | 冻结缺口 | 当前不再作为 Step 2 内待收口组；保留为冻结的未收口能力缺口，并继续记录基线、原型与归因。 |
 
 说明：
 
@@ -577,7 +633,7 @@ phase1/outputs/step2/
 | Layer 1 | bg_fg 分割结果稳定，对象数和 bg_color 可人工验证；adjacency 和 containment 关系正确 |
 | Layer 2 | bg_fg 分割下的对齐结果稳定，alignment_id 绑定不丢失 |
 | Layer 3 | 新候选空间下 pre_priority 排序合理，copy 类不被系统性压制 |
-| Layer 4 | extend_to_boundary 在四个方向上的独立执行测试；背景色动态识别测试 |
+| Layer 4 | extend_to_boundary 在 source=`full_boundary/top_edge/bottom_edge/left_edge/right_edge/center_row/center_col` 与 `up/down/left/right`、`nearest_boundary`、`to_nearest_object_boundary`、`horizontal_both`、`vertical_both` 的组合上做最小独立执行测试；背景色动态识别测试 |
 | Layer 5 | concept_group 字段正确填充 |
 
 ### 12.2 端到端测试
@@ -629,7 +685,7 @@ Step 2 沿用 Step 1 的遥测产物（Attribution JSON、timing JSON、选中 h
 | MoveToBoundary | 6 | ? | ? | N/A |
 | ExtendToBoundary | 6 | ? | ? | N/A |
 | ExtractObjects | 6 | ? | ? | N/A |
-| CleanUp | 6 | ? | ? | N/A |
+| CleanUp | 6 | 冻结缺口 | 0/6 | 不作为当前已收口组处理 |
 
 ## Failure Type Distribution
 ...
@@ -641,6 +697,8 @@ Step 2 沿用 Step 1 的遥测产物（Attribution JSON、timing JSON、选中 h
 ## 14. Step 2 整体验收
 
 Step 2 完成，必须同时满足以下所有条件：
+
+> **2026-04-06 全量回归快照**：已对 36 个训练任务完成 Phase 9 全量回归，整体结果为 **15/36 exact**，无已知成功样例回归。概念组结果为：Copy **2/6**、Center **6/6**、MoveToBoundary **3/6**、ExtendToBoundary **2/6**、ExtractObjects **2/6**、CleanUp **0/6**。其中 MoveToBoundary、冻结后的 ExtendToBoundary、ExtractObjects 均满足当前组级口径；CleanUp 继续作为冻结的未收口能力缺口保留。需要明确的是，这一结果仍**不足以宣告 Step 2 整体完成**，因为 Step 2a 目前仍为 **8/12**，未达到本节要求的 **≥9/12**。
 
 ### 14.1 定量门槛
 

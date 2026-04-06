@@ -15,6 +15,27 @@ FORBIDDEN_TOKENS = (
     "construct_grid",
 )
 
+ALLOWED_EXTEND_DIRECTIONS = {
+    "up",
+    "down",
+    "left",
+    "right",
+    "nearest_boundary",
+    "to_nearest_object_boundary",
+    "horizontal_both",
+    "vertical_both",
+}
+
+ALLOWED_EXTEND_SOURCES = {
+    "full_boundary",
+    "top_edge",
+    "bottom_edge",
+    "left_edge",
+    "right_edge",
+    "center_row",
+    "center_col",
+}
+
 
 @dataclass(frozen=True)
 class PrimitiveCall:
@@ -99,6 +120,13 @@ def validate_step1_program(program: Step1Program) -> None:
     def validate_primitive(primitive: PrimitiveCall) -> None:
         if primitive.op not in ALLOWED_PRIMITIVES:
             raise ValueError(f"Unsupported primitive in Step 1: {primitive.op}")
+        if primitive.op == "extend_to_boundary":
+            source = primitive.params.get("source", "full_boundary")
+            direction = primitive.params.get("direction", "nearest_boundary")
+            if not isinstance(source, str) or source not in ALLOWED_EXTEND_SOURCES:
+                raise ValueError(f"Unsupported extend_to_boundary source in Step 2: {source}")
+            if not isinstance(direction, str) or direction not in ALLOWED_EXTEND_DIRECTIONS:
+                raise ValueError(f"Unsupported extend_to_boundary direction in Step 2: {direction}")
         for token in FORBIDDEN_TOKENS:
             if token in primitive.op or token in primitive.target:
                 raise ValueError(f"Forbidden control semantics in Step 1 program: {token}")

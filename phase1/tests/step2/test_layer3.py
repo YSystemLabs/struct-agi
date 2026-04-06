@@ -197,6 +197,45 @@ class Layer3Tests(unittest.TestCase):
         self.assertTrue(saturated)
         self.assertEqual([top.program, middle.program], [item.program for item in beam])
 
+    def test_hypothesis_beam_appends_single_extend_to_boundary_keepalive_when_family_missing(self) -> None:
+        top = Hypothesis("cc4", "a:0", "a", {"strong": ["size_rule:preserve_input_size"], "weak": []}, "recolor[target=all,color=2]")
+        middle = Hypothesis(
+            "cc4",
+            "b:0",
+            "b",
+            {"strong": ["size_rule:preserve_input_size"], "weak": []},
+            "recolor[target=all,color=2] ; delete[target=all]",
+        )
+        keepalive = Hypothesis(
+            "bg_fg",
+            "c:0",
+            "c",
+            {"strong": ["size_rule:preserve_input_size"], "weak": []},
+            "extend_to_boundary[target=center_object,source=full_boundary,direction=vertical_both]",
+        )
+        beam, saturated = apply_hypothesis_beam([keepalive, middle, top], beam_size=2)
+        self.assertTrue(saturated)
+        self.assertEqual([top.program, middle.program, keepalive.program], [item.program for item in beam])
+
+    def test_hypothesis_beam_does_not_append_duplicate_extend_to_boundary_keepalive(self) -> None:
+        top = Hypothesis(
+            "bg_fg",
+            "a:0",
+            "a",
+            {"strong": ["size_rule:preserve_input_size"], "weak": []},
+            "extend_to_boundary[target=center_object,source=full_boundary,direction=down]",
+        )
+        remainder_extend = Hypothesis(
+            "bg_fg",
+            "b:0",
+            "b",
+            {"strong": ["size_rule:preserve_input_size"], "weak": []},
+            "extend_to_boundary[target=center_object,source=full_boundary,direction=vertical_both]",
+        )
+        beam, saturated = apply_hypothesis_beam([remainder_extend, top], beam_size=1)
+        self.assertTrue(saturated)
+        self.assertEqual([top.program], [item.program for item in beam])
+
     def test_pre_priority_gives_copy_candidate_bonus(self) -> None:
         copy_hypothesis = Hypothesis(
             "cc4",
@@ -213,6 +252,23 @@ class Layer3Tests(unittest.TestCase):
             "delete[target=all]",
         )
         self.assertLess(pre_priority(copy_hypothesis), pre_priority(delete_hypothesis))
+
+    def test_pre_priority_counts_step2_symbolic_params_as_attribute_refs(self) -> None:
+        symbolic = Hypothesis(
+            "cc4",
+            "a:0",
+            "a",
+            {"strong": ["size_rule:preserve_input_size"], "weak": []},
+            "translate[target=all,dx=to_boundary_dx,dy=to_boundary_dy]",
+        )
+        plain = Hypothesis(
+            "cc4",
+            "b:0",
+            "b",
+            {"strong": ["size_rule:preserve_input_size"], "weak": []},
+            "translate[target=all,dx=1,dy=0]",
+        )
+        self.assertLess(pre_priority(symbolic), pre_priority(plain))
 
 
 if __name__ == "__main__":

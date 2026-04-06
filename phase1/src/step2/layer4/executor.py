@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import replace
+from statistics import median
 
 from phase1.src.step2.config import ALLOWED_OUTPUT_SIZE_RULES
 from phase1.src.step2.data.models import Grid, ObjectData, SegmentationPlan
@@ -70,6 +71,7 @@ def _apply_primitive(
     param_context: list[ObjectData],
     background_color: int,
 ) -> list[ObjectData]:
+    _validate_target_selector_usage(primitive)
     target_ids = _resolve_target_ids(objects, primitive.target, input_grid)
     if primitive.op == "translate" and primitive.params.get("mode") == "rare_color_motif_to_largest_component_center":
         return _translate_rare_color_motif_to_largest_component_center(objects, input_grid, target_ids, background_color)
@@ -136,13 +138,9 @@ def _transform_object(
         mode = str(primitive.params.get("mode", "tight_bbox"))
         return _crop_object(obj, input_grid, mode)
     if primitive.op == "extend_to_boundary":
+        source = str(primitive.params.get("source", "full_boundary"))
         direction = str(primitive.params.get("direction", "nearest_boundary"))
-        pixels = _extend_to_boundary_pixels(obj, direction, input_grid, param_context)
-        ext_color = int(obj.attrs.get("dominant_color", 0))
-        pc = dict(obj.pixel_colors)
-        for cell in pixels:
-            if cell not in pc:
-                pc[cell] = ext_color
+        pixels, pc = _extend_to_boundary_with_colors(obj, direction, input_grid, param_context, source)
         return _replace_pixels(obj, pixels, pc)
     if primitive.op == "copy":
         raise ValueError("copy must be handled through CopyBlock")
@@ -428,6 +426,24 @@ def _resolve_target_ids(objects: list[ObjectData], target: str, input_grid: Grid
     if target == "rare_color_object":
         selected = _select_rare_color_object(objects)
         return {selected.id} if selected is not None else set()
+    if target == "gap_thinner_object":
+        selected = _select_gap_thinner_object(objects)
+        return {selected.id} if selected is not None else set()
+    if target == "foreground_objects":
+        return {obj.id for obj in objects}
+    if target == "boundary_adjacent":
+        rows = len(input_grid)
+        cols = len(input_grid[0]) if input_grid else 0
+        return {
+            obj.id
+            for obj in objects
+            if _touches_boundary(obj.bbox, rows, cols)
+        }
+    if target == "noise_objects":
+        return {
+            obj.id
+            for obj in _select_noise_objects(objects)
+        }
     return set()
 
 
@@ -523,19 +539,26 @@ def _extend_to_boundary_pixels(
     direction: str,
     input_grid: Grid,
     param_context: list[ObjectData],
+    source: str = "full_boundary",
 ) -> set[tuple[int, int]]:
-    if direction == "nearest_boundary":
-        direction = _nearest_boundary_direction(obj.bbox, input_grid)
+    pixels, _ = _extend_to_boundary_with_colors(obj, direction, input_grid, param_context, source)
+    return pixels
+
+
+def _extend_to_boundary_with_colors(
+    obj: ObjectData,
+    direction: str,
+    input_grid: Grid,
+    param_context: list[ObjectData],
+    source: str = "full_boundary",
+) -> tuple[set[tuple[int, int]], dict[tuple[int, int], int]]:
     direction_vectors = {
         "up": (-1, 0),
         "down": (1, 0),
         "left": (0, -1),
         "right": (0, 1),
     }
-    if direction not in direction_vectors:
-        raise ValueError(f"Unsupported extend_to_boundary direction: {direction}")
-
-    delta_row, delta_col = direction_vectors[direction]
+    resolved_directions = _resolve_extend_directions(obj, direction, input_grid, param_context)
     rows = len(input_grid)
     cols = len(input_grid[0]) if input_grid else 0
     other_pixels = {
@@ -545,18 +568,95 @@ def _extend_to_boundary_pixels(
         for pixel in other.pixels
     }
     extended = set(obj.pixels)
-    for row, col in sorted(obj.pixels):
-        current_row, current_col = row, col
-        while True:
-            next_row = current_row + delta_row
-            next_col = current_col + delta_col
-            if not (0 <= next_row < rows and 0 <= next_col < cols):
-                break
-            if (next_row, next_col) in other_pixels:
-                break
-            extended.add((next_row, next_col))
-            current_row, current_col = next_row, next_col
-    return extended
+    pixel_colors = dict(obj.pixel_colors)
+    default_color = int(obj.attrs.get("dominant_color", 0))
+    additions: dict[tuple[int, int], int] = {}
+    source_pixels = _select_extend_source_pixels(obj, source)
+    for resolved_direction in resolved_directions:
+        if resolved_direction not in direction_vectors:
+            raise ValueError(f"Unsupported extend_to_boundary direction: {resolved_direction}")
+        delta_row, delta_col = direction_vectors[resolved_direction]
+        for row, col in sorted(_directional_frontier_pixels(source_pixels, resolved_direction)):
+            source_color = pixel_colors.get((row, col), default_color)
+            current_row, current_col = row, col
+            while True:
+                next_row = current_row + delta_row
+                next_col = current_col + delta_col
+                if not (0 <= next_row < rows and 0 <= next_col < cols):
+                    break
+                if (next_row, next_col) in other_pixels:
+                    break
+                extended.add((next_row, next_col))
+                additions.setdefault((next_row, next_col), source_color)
+                current_row, current_col = next_row, next_col
+    for cell in extended:
+        if cell not in pixel_colors:
+            pixel_colors[cell] = additions.get(cell, default_color)
+    return extended, pixel_colors
+
+
+def _resolve_extend_directions(
+    obj: ObjectData,
+    direction: str,
+    input_grid: Grid,
+    param_context: list[ObjectData],
+) -> tuple[str, ...]:
+    if direction == "nearest_boundary":
+        return (_nearest_boundary_direction(obj.bbox, input_grid),)
+    if direction == "to_nearest_object_boundary":
+        return (_nearest_object_boundary_direction(obj, param_context),)
+    if direction == "horizontal_both":
+        return ("left", "right")
+    if direction == "vertical_both":
+        return ("up", "down")
+    return (direction,)
+
+
+def _boundary_source_pixels(obj: ObjectData, direction: str) -> set[tuple[int, int]]:
+    if direction == "up":
+        return {(row, col) for row, col in obj.pixels if (row - 1, col) not in obj.pixels}
+    if direction == "down":
+        return {(row, col) for row, col in obj.pixels if (row + 1, col) not in obj.pixels}
+    if direction == "left":
+        return {(row, col) for row, col in obj.pixels if (row, col - 1) not in obj.pixels}
+    if direction == "right":
+        return {(row, col) for row, col in obj.pixels if (row, col + 1) not in obj.pixels}
+    raise ValueError(f"Unsupported extend_to_boundary direction: {direction}")
+
+
+def _select_extend_source_pixels(obj: ObjectData, source: str) -> set[tuple[int, int]]:
+    if not obj.pixels:
+        return set()
+    min_row, min_col, max_row, max_col = obj.bbox
+    if source == "full_boundary":
+        return set(obj.pixels)
+    if source == "top_edge":
+        return {(row, col) for row, col in obj.pixels if row == min_row}
+    if source == "bottom_edge":
+        return {(row, col) for row, col in obj.pixels if row == max_row}
+    if source == "left_edge":
+        return {(row, col) for row, col in obj.pixels if col == min_col}
+    if source == "right_edge":
+        return {(row, col) for row, col in obj.pixels if col == max_col}
+    if source == "center_row":
+        target_row = min(range(min_row, max_row + 1), key=lambda row: (abs(row - ((min_row + max_row) / 2)), row))
+        return {(row, col) for row, col in obj.pixels if row == target_row}
+    if source == "center_col":
+        target_col = min(range(min_col, max_col + 1), key=lambda col: (abs(col - ((min_col + max_col) / 2)), col))
+        return {(row, col) for row, col in obj.pixels if col == target_col}
+    raise ValueError(f"Unsupported extend_to_boundary source: {source}")
+
+
+def _directional_frontier_pixels(source_pixels: set[tuple[int, int]], direction: str) -> set[tuple[int, int]]:
+    if direction == "up":
+        return {(row, col) for row, col in source_pixels if (row - 1, col) not in source_pixels}
+    if direction == "down":
+        return {(row, col) for row, col in source_pixels if (row + 1, col) not in source_pixels}
+    if direction == "left":
+        return {(row, col) for row, col in source_pixels if (row, col - 1) not in source_pixels}
+    if direction == "right":
+        return {(row, col) for row, col in source_pixels if (row, col + 1) not in source_pixels}
+    raise ValueError(f"Unsupported extend_to_boundary direction: {direction}")
 
 
 def _nearest_boundary_direction(bbox: tuple[int, int, int, int], input_grid: Grid) -> str:
@@ -570,6 +670,57 @@ def _nearest_boundary_direction(bbox: tuple[int, int, int, int], input_grid: Gri
         (cols - 1 - max_col, "right"),
     ]
     return min(distances, key=lambda item: (item[0], {"up": 0, "down": 1, "left": 2, "right": 3}[item[1]]))[1]
+
+
+def _nearest_object_boundary_direction(obj: ObjectData, param_context: list[ObjectData]) -> str:
+    others = [other for other in param_context if other.id != obj.id]
+    if not others:
+        return "right"
+
+    best_score: tuple[int, int, str, int, int, int] | None = None
+    best_direction = "right"
+    obj_min_row, obj_min_col, obj_max_row, obj_max_col = obj.bbox
+    for other in others:
+        other_min_row, other_min_col, other_max_row, other_max_col = other.bbox
+        row_overlap = _overlap_1d(obj_min_row, obj_max_row, other_min_row, other_max_row)
+        col_overlap = _overlap_1d(obj_min_col, obj_max_col, other_min_col, other_max_col)
+        object_gap = _bbox_gap(obj.bbox, other.bbox)
+        candidate_directions: list[tuple[int, int, int, str]] = []
+
+        if other_max_row < obj_min_row:
+            candidate_directions.append((obj_min_row - other_max_row - 1, 0 if col_overlap else 1, 0, "up"))
+        if other_min_row > obj_max_row:
+            candidate_directions.append((other_min_row - obj_max_row - 1, 0 if col_overlap else 1, 1, "down"))
+        if other_max_col < obj_min_col:
+            candidate_directions.append((obj_min_col - other_max_col - 1, 0 if row_overlap else 1, 2, "left"))
+        if other_min_col > obj_max_col:
+            candidate_directions.append((other_min_col - obj_max_col - 1, 0 if row_overlap else 1, 3, "right"))
+
+        if not candidate_directions:
+            vertical_gap = min(abs(obj_min_row - other_max_row - 1), abs(other_min_row - obj_max_row - 1))
+            horizontal_gap = min(abs(obj_min_col - other_max_col - 1), abs(other_min_col - obj_max_col - 1))
+            if float(other.attrs.get("center_row", 0.0)) <= float(obj.attrs.get("center_row", 0.0)):
+                candidate_directions.append((vertical_gap, 0 if col_overlap else 1, 0, "up"))
+            else:
+                candidate_directions.append((vertical_gap, 0 if col_overlap else 1, 1, "down"))
+            if float(other.attrs.get("center_col", 0.0)) <= float(obj.attrs.get("center_col", 0.0)):
+                candidate_directions.append((horizontal_gap, 0 if row_overlap else 1, 2, "left"))
+            else:
+                candidate_directions.append((horizontal_gap, 0 if row_overlap else 1, 3, "right"))
+
+        direction_gap, overlap_penalty, direction_rank, direction_name = min(candidate_directions)
+        score = (
+            object_gap,
+            overlap_penalty,
+            other.id,
+            direction_gap,
+            direction_rank,
+            int(other.attrs.get("area", 0)),
+        )
+        if best_score is None or score < best_score:
+            best_score = score
+            best_direction = direction_name
+    return best_direction
 
 
 def _component_sort_key(component: set[tuple[int, int]]) -> tuple[int, float, float, tuple[int, int, int, int]]:
@@ -662,6 +813,18 @@ def _symbolic_param_value(token: str, obj: ObjectData, input_grid: Grid, param_c
         if largest is None:
             return 0
         return int(round(float(largest.attrs.get("center_row", 0.0)) - float(obj.attrs.get("center_row", 0.0))))
+    if token == "to_boundary_dx":
+        dx, _ = _boundary_offsets(obj, param_context, input_grid)
+        return dx
+    if token == "to_boundary_dy":
+        _, dy = _boundary_offsets(obj, param_context, input_grid)
+        return dy
+    if token == "to_nearest_object_dx":
+        dx, _ = _nearest_object_offsets(obj, param_context)
+        return dx
+    if token == "to_nearest_object_dy":
+        _, dy = _nearest_object_offsets(obj, param_context)
+        return dy
     raise ValueError(f"Unsupported Step 1 symbolic parameter: {token}")
 
 
@@ -705,3 +868,219 @@ def _select_rare_color_object(objects: list[ObjectData]) -> ObjectData | None:
             obj.id,
         ),
     )
+
+
+def _select_gap_thinner_object(objects: list[ObjectData]) -> ObjectData | None:
+    gap_pair = _select_single_axis_gap_pair(objects)
+    if gap_pair is None:
+        return None
+    axis, first, second = gap_pair
+    if axis == "vertical":
+        return min(
+            (first, second),
+            key=lambda obj: (int(obj.attrs.get("width", 0)), int(obj.attrs.get("area", 0)), obj.id),
+        )
+    return min(
+        (first, second),
+        key=lambda obj: (int(obj.attrs.get("height", 0)), int(obj.attrs.get("area", 0)), obj.id),
+    )
+
+
+def _select_single_axis_gap_pair(objects: list[ObjectData]) -> tuple[str, ObjectData, ObjectData] | None:
+    best: tuple[int, int, str, str] | None = None
+    chosen: tuple[str, ObjectData, ObjectData] | None = None
+    for index, obj in enumerate(objects):
+        for other in objects[index + 1 :]:
+            gap_info = _single_axis_gap_info(obj.bbox, other.bbox)
+            if gap_info is None:
+                continue
+            axis, gap = gap_info
+            score = (gap, 0 if axis == "vertical" else 1, obj.id, other.id)
+            if best is None or score < best:
+                best = score
+                chosen = (axis, obj, other)
+    return chosen
+
+
+def _single_axis_gap_info(
+    a_bbox: tuple[int, int, int, int],
+    b_bbox: tuple[int, int, int, int],
+) -> tuple[str, int] | None:
+    a_min_row, a_min_col, a_max_row, a_max_col = a_bbox
+    b_min_row, b_min_col, b_max_row, b_max_col = b_bbox
+    row_gap = max(b_min_row - a_max_row - 1, a_min_row - b_max_row - 1)
+    col_gap = max(b_min_col - a_max_col - 1, a_min_col - b_max_col - 1)
+    if row_gap > 0 and col_gap <= 0 and _overlap_1d(a_min_col, a_max_col, b_min_col, b_max_col):
+        return ("vertical", row_gap)
+    if col_gap > 0 and row_gap <= 0 and _overlap_1d(a_min_row, a_max_row, b_min_row, b_max_row):
+        return ("horizontal", col_gap)
+    return None
+
+
+def _validate_target_selector_usage(primitive: PrimitiveCall) -> None:
+    multi_object_only_targets = {"foreground_objects", "noise_objects", "boundary_adjacent"}
+    collection_safe_ops = {"delete", "recolor", "fill"}
+    if primitive.target in multi_object_only_targets and primitive.op not in collection_safe_ops:
+        raise ValueError(f"Target selector {primitive.target} cannot be used with single-object primitive {primitive.op}")
+
+
+def _boundary_offsets(obj: ObjectData, param_context: list[ObjectData], input_grid: Grid) -> tuple[int, int]:
+    rows = len(input_grid)
+    cols = len(input_grid[0]) if input_grid else 0
+    direction = _boundary_direction(obj, param_context)
+    min_row, min_col, max_row, max_col = obj.bbox
+    if direction == "up":
+        return (0, -min_row)
+    if direction == "down":
+        return (0, rows - 1 - max_row)
+    if direction == "left":
+        return (-min_col, 0)
+    return (cols - 1 - max_col, 0)
+
+
+def _nearest_object_offsets(obj: ObjectData, param_context: list[ObjectData]) -> tuple[int, int]:
+    others = [other for other in param_context if other.id != obj.id]
+    if not others:
+        return (0, 0)
+    mover = _nearest_object_mover(param_context)
+    if mover is None or mover.id != obj.id:
+        return (0, 0)
+
+    best: tuple[tuple[int, int, int, str], tuple[int, int]] | None = None
+    min_row, min_col, max_row, max_col = obj.bbox
+    for other in others:
+        other_min_row, other_min_col, other_max_row, other_max_col = other.bbox
+        candidates: list[tuple[int, int]] = []
+        if _overlap_1d(min_row, max_row, other_min_row, other_max_row):
+            candidates.append((other_min_col - max_col - 1, 0))
+            candidates.append((other_max_col - min_col + 1, 0))
+        if _overlap_1d(min_col, max_col, other_min_col, other_max_col):
+            candidates.append((0, other_min_row - max_row - 1))
+            candidates.append((0, other_max_row - min_row + 1))
+        if not candidates:
+            candidates.extend(
+                [
+                    (other_min_col - max_col - 1, other_min_row - max_row - 1),
+                    (other_min_col - max_col - 1, other_max_row - min_row + 1),
+                    (other_max_col - min_col + 1, other_min_row - max_row - 1),
+                    (other_max_col - min_col + 1, other_max_row - min_row + 1),
+                ]
+            )
+        for dx, dy in candidates:
+            score = (abs(dx) + abs(dy), abs(dy), abs(dx), other.id)
+            if best is None or score < best[0]:
+                best = (score, (dx, dy))
+    return best[1] if best is not None else (0, 0)
+
+
+def _boundary_direction(obj: ObjectData, param_context: list[ObjectData]) -> str:
+    if len(param_context) == 1:
+        return _single_object_boundary_direction(obj)
+
+    largest = _select_extreme_object(param_context, smallest=False)
+    if largest is None:
+        return "right"
+    height = largest.bbox[2] - largest.bbox[0] + 1
+    width = largest.bbox[3] - largest.bbox[1] + 1
+    if height > width:
+        top_distance = sum(other.bbox[0] for other in param_context)
+        bottom_distance = sum(int(other.attrs.get("canvas_height", 0)) - 1 - other.bbox[2] for other in param_context)
+        return "up" if top_distance <= bottom_distance else "down"
+    if width > height:
+        left_distance = sum(other.bbox[1] for other in param_context)
+        right_distance = sum(int(other.attrs.get("canvas_width", 0)) - 1 - other.bbox[3] for other in param_context)
+        return "left" if left_distance <= right_distance else "right"
+    return _single_object_boundary_direction(largest)
+
+
+def _single_object_boundary_direction(obj: ObjectData) -> str:
+    min_row, min_col, max_row, max_col = obj.bbox
+    height = max_row - min_row + 1
+    width = max_col - min_col + 1
+    top_edge = sum(1 for row, _ in obj.pixels if row == min_row)
+    bottom_edge = sum(1 for row, _ in obj.pixels if row == max_row)
+    if width > height and bottom_edge != top_edge:
+        return "right" if bottom_edge > top_edge else "left"
+
+    mid_row = (min_row + max_row) / 2
+    mid_col = (min_col + max_col) / 2
+    top_half = sum(1 for row, _ in obj.pixels if row < mid_row)
+    bottom_half = sum(1 for row, _ in obj.pixels if row > mid_row)
+    left_half = sum(1 for _, col in obj.pixels if col < mid_col)
+    right_half = sum(1 for _, col in obj.pixels if col > mid_col)
+    if abs(left_half - right_half) >= abs(top_half - bottom_half) and left_half != right_half:
+        return "right" if left_half > right_half else "left"
+    if top_half != bottom_half:
+        return "down" if top_half > bottom_half else "up"
+    return "right"
+
+
+def _nearest_object_mover(param_context: list[ObjectData]) -> ObjectData | None:
+    if len(param_context) < 2:
+        return None
+    best: tuple[int, float, int, int, str] | None = None
+    chosen: ObjectData | None = None
+    for index, obj in enumerate(param_context):
+        for other in param_context[index + 1 :]:
+            gap = _bbox_gap(obj.bbox, other.bbox)
+            for candidate in (obj, other):
+                score = (
+                    gap,
+                    _grid_center_distance(candidate),
+                    _boundary_touch_count(candidate),
+                    int(candidate.attrs.get("area", 0)),
+                    candidate.id,
+                )
+                if best is None or score < best:
+                    best = score
+                    chosen = candidate
+    return chosen
+
+
+def _grid_center_distance(obj: ObjectData) -> float:
+    canvas_height = int(obj.attrs.get("canvas_height", 0))
+    canvas_width = int(obj.attrs.get("canvas_width", 0))
+    grid_center_row = (canvas_height - 1) / 2
+    grid_center_col = (canvas_width - 1) / 2
+    return abs(float(obj.attrs.get("center_row", 0.0)) - grid_center_row) + abs(
+        float(obj.attrs.get("center_col", 0.0)) - grid_center_col
+    )
+
+
+def _boundary_touch_count(obj: ObjectData) -> int:
+    canvas_height = int(obj.attrs.get("canvas_height", 0))
+    canvas_width = int(obj.attrs.get("canvas_width", 0))
+    min_row, min_col, max_row, max_col = obj.bbox
+    return sum(
+        (
+            min_row == 0,
+            min_col == 0,
+            max_row == canvas_height - 1,
+            max_col == canvas_width - 1,
+        )
+    )
+
+
+def _bbox_gap(a_bbox: tuple[int, int, int, int], b_bbox: tuple[int, int, int, int]) -> int:
+    a_min_row, a_min_col, a_max_row, a_max_col = a_bbox
+    b_min_row, b_min_col, b_max_row, b_max_col = b_bbox
+    row_gap = max(0, max(b_min_row - a_max_row - 1, a_min_row - b_max_row - 1))
+    col_gap = max(0, max(b_min_col - a_max_col - 1, a_min_col - b_max_col - 1))
+    return row_gap + col_gap
+
+
+def _overlap_1d(a_min: int, a_max: int, b_min: int, b_max: int) -> bool:
+    return not (a_max < b_min or b_max < a_min)
+
+
+def _touches_boundary(bbox: tuple[int, int, int, int], rows: int, cols: int) -> bool:
+    min_row, min_col, max_row, max_col = bbox
+    return min_row == 0 or min_col == 0 or max_row == rows - 1 or max_col == cols - 1
+
+
+def _select_noise_objects(objects: list[ObjectData]) -> list[ObjectData]:
+    if not objects:
+        return []
+    areas = sorted(int(obj.attrs.get("area", 0)) for obj in objects)
+    threshold = float(median(areas)) / 4.0
+    return [obj for obj in objects if float(obj.attrs.get("area", 0)) < threshold]

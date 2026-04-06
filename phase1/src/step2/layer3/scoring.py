@@ -24,7 +24,16 @@ def description_length(hypothesis: Hypothesis) -> int:
     return plan_count + ast_node_count + len(strong_constraints) + constant_count
 
 
-_SYMBOLIC_PARAM_TOKENS = {"input_width", "input_height", "object_width", "object_height"}
+_SYMBOLIC_PARAM_TOKENS = {
+    "input_width",
+    "input_height",
+    "object_width",
+    "object_height",
+    "to_boundary_dx",
+    "to_boundary_dy",
+    "to_nearest_object_dx",
+    "to_nearest_object_dy",
+}
 
 
 def pre_priority(hypothesis: Hypothesis) -> tuple[float, int]:

@@ -20,7 +20,7 @@
 
 **渐进增长**：知识状态 $K_t$ 随任务经验积累，按需扩展，通过三阶段改写（假设折叠 → 别名消除 → 死知识冻结）保持复杂度受控。
 
-**当前进展**：Step 1 已完成“最小闭环已实施冻结”的收尾验收。当前在 ConceptARC 的 Copy1-6 与 Center1-6 共 12 个训练任务上，已经稳定跑通可审计闭环；批量结果为 6 个精确求解、6 个 `ABSTRACTION_FAIL`。这一结果说明路线目前没有出现“推进不下去需要退出”的信号，但也不应被夸大为第一阶段整体已经完成。
+**当前进展**：Step 1 已作为最小闭环基线冻结；Step 2 已完成到“冻结边界 + 明确移交”的验收口径。当前稳定结果为：Step 2a 在 Copy1-6 与 Center1-6 上达到 8/12、按“有条件通过”接受；Step 2b 在新增四个概念组上达到 MoveToBoundary 3/6、ExtendToBoundary 2/6、ExtractObjects 2/6，并将 CleanUp 冻结为未收口能力缺口。当前工程状态已进入 Step 3A 准备阶段，即先处理 Step 2 显式移交的残差能力，再进入正式增长实验。
 
 ## 项目结构
 
@@ -35,12 +35,13 @@ structuralist-agi/
     ├── docs/
     │   ├── 第一阶段研究计划-0v1.md  # 可执行研究计划
     │   ├── 第一阶段算法架构-0v4.md  # 算法架构设计（当前版本）
-    │   └── step1/                 # Step 1 设计、接口、实验与验收文档
+    │   ├── step1/                 # Step 1 设计、接口、实验与验收文档
+    │   └── step2/                 # Step 2 设计、边界、实验与验收文档
     ├── datasets/raw/              # ARC-AGI-2, ConceptARC 原始数据
-    ├── src/                       # Phase 1 / Step 1 实现代码
-    ├── tests/                     # Step 1 单元测试
+    ├── src/                       # Phase 1 / Step 1-2 实现代码
+    ├── tests/                     # Step 1-2 单元测试
     ├── scripts/                   # 渲染、gallery 构建等工具脚本
-    └── outputs/                   # SVG 预览、gallery 等可再生输出
+    └── outputs/                   # SVG 预览、batch 报告、debug bundle 等可再生输出
 ```
 
 ## 关键文档
@@ -51,11 +52,13 @@ structuralist-agi/
 | [Phase 1 研究计划](phase1/docs/第一阶段研究计划-0v1.md) | 研究边界、假设、方法框架、评测指标、成功标准 |
 | [Phase 1 算法架构](phase1/docs/第一阶段算法架构-0v4.md) | 五层架构、DSL、MDL 筛选、渐进增长、知识改写 |
 | [Step 1 实验与验收报告](phase1/docs/step1/Step1实验与验收报告-0v1.md) | Step 1 的实验设置、结果摘要、验收结论与阶段性判断 |
+| [Step 2a 实验与验收报告](phase1/docs/step2/Step2a实验与验收报告-0v1.md) | Step 2a 的实验设置、冻结边界、全量回归与验收结论 |
+| [Step 2b 实验与验收报告](phase1/docs/step2/Step2b实验与验收报告-0v1.md) | Step 2b 的实验设置、冻结边界、全量回归与验收结论 |
 | [Phase 1 README](phase1/README.md) | 目录约定、脚本用法、本地预览方法 |
 
 ## 当前结论
 
-截至 2026-04-04，项目最重要的阶段性结论是：Step 1 已经证明“结构感知 → 候选生成 → 假设筛选 → 程序执行 → 失败归因”的最小闭环能够稳定工作，并且当前剩余失败主要指向 Step 2 应处理的能力缺口，而不是主链路失效。因此，当前最合理的推进方式是把 Step 1 作为冻结基线保存，并进入 Step 2 的单任务求解器加固。
+截至 2026-04-06，项目最重要的阶段性结论是：Step 2 已经把单任务求解器推进到可冻结、可审计、可批量回归的稳定基线。当前 36 个训练任务的全量回归结果为 15/36 exact，且已知成功样例无回退；与此同时，Copy3-6、部分 ExtendToBoundary 残差与 CleanUp 缺口已经被明确登记为 Step 3A 输入，而不是继续回流 Step 2 做边界蔓延式修补。
 
 ## 数据集
 

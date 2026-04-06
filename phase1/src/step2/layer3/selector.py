@@ -45,7 +45,11 @@ def apply_hypothesis_beam(
     ranked = sorted(hypotheses, key=beam_priority_key)
     if beam_size <= 0:
         return ([], bool(ranked))
-    return (ranked[:beam_size], len(ranked) > beam_size)
+    saturated = len(ranked) > beam_size
+    beam = ranked[:beam_size]
+    if saturated:
+        beam = _append_extend_to_boundary_keepalive(beam, ranked[beam_size:])
+    return (beam, saturated)
 
 
 def group_equivalent_hypotheses(
@@ -154,3 +158,32 @@ def _is_semantic_noop_copy(program_text: str) -> bool:
     if program.copy_block is None or program.primitives:
         return False
     return not program.copy_block.on_copy.primitives and not program.copy_block.on_original.primitives
+
+
+def _append_extend_to_boundary_keepalive(
+    beam: list[Hypothesis],
+    remainder: list[Hypothesis],
+) -> list[Hypothesis]:
+    if any(_program_contains_primitive(item.program, "extend_to_boundary") for item in beam):
+        return beam
+    keepalive = next(
+        (item for item in remainder if _program_contains_primitive(item.program, "extend_to_boundary")),
+        None,
+    )
+    if keepalive is None:
+        return beam
+    return [*beam, keepalive]
+
+
+def _program_contains_primitive(program_text: str, primitive_name: str) -> bool:
+    try:
+        program = parse_program(program_text)
+    except Exception:
+        return False
+    if any(primitive.op == primitive_name for primitive in program.primitives):
+        return True
+    if program.copy_block is None:
+        return False
+    return any(primitive.op == primitive_name for primitive in program.copy_block.on_copy.primitives) or any(
+        primitive.op == primitive_name for primitive in program.copy_block.on_original.primitives
+    )

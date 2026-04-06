@@ -150,12 +150,338 @@ class Layer4Tests(unittest.TestCase):
         output = execute_program(program, plan, grid, "preserve_input_size")
         self.assertEqual([[0, 0, 0], [0, 0, 0], [0, 0, 7]], output)
 
+    def test_extend_to_boundary_gap_thinner_object_selector(self) -> None:
+        grid = [
+            [0, 0, 0, 0, 0, 0],
+            [1, 1, 1, 1, 1, 0],
+            [0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 2, 0, 0],
+            [0, 0, 0, 2, 0, 0],
+            [0, 0, 0, 2, 0, 0],
+        ]
+        plan = _multi_object_plan(
+            [
+                _manual_object("bar", {(1, 0), (1, 1), (1, 2), (1, 3), (1, 4)}, 1, 6, 6),
+                _manual_object("stem", {(3, 3), (4, 3), (5, 3)}, 2, 6, 6),
+            ]
+        )
+        program = Step1Program(
+            primitives=(
+                PrimitiveCall(
+                    "extend_to_boundary",
+                    target="gap_thinner_object",
+                    params={"source": "center_col", "direction": "to_nearest_object_boundary"},
+                ),
+            )
+        )
+        output = execute_program(program, plan, grid, "preserve_input_size")
+        self.assertEqual(
+            [
+                [0, 0, 0, 0, 0, 0],
+                [1, 1, 1, 1, 1, 0],
+                [0, 0, 0, 2, 0, 0],
+                [0, 0, 0, 2, 0, 0],
+                [0, 0, 0, 2, 0, 0],
+                [0, 0, 0, 2, 0, 0],
+            ],
+            output,
+        )
+
     def test_extend_to_boundary_right(self) -> None:
         grid = [[0, 0, 0, 0], [0, 3, 0, 0], [0, 0, 0, 0]]
         plan = _multi_object_plan([_manual_object("obj0", {(1, 1)}, 3, 3, 4)])
-        program = Step1Program(primitives=(PrimitiveCall("extend_to_boundary", params={"direction": "right"}),))
+        program = Step1Program(primitives=(PrimitiveCall("extend_to_boundary", params={"source": "full_boundary", "direction": "right"}),))
         output = execute_program(program, plan, grid, "preserve_input_size")
         self.assertEqual([[0, 0, 0, 0], [0, 3, 3, 3], [0, 0, 0, 0]], output)
+
+    def test_extend_to_boundary_stops_at_other_object(self) -> None:
+        grid = [
+            [0, 0, 0, 0, 0],
+            [0, 3, 0, 9, 0],
+            [0, 0, 0, 0, 0],
+        ]
+        plan = _multi_object_plan(
+            [
+                _manual_object("src", {(1, 1)}, 3, 3, 5),
+                _manual_object("blocker", {(1, 3)}, 9, 3, 5),
+            ]
+        )
+        program = Step1Program(primitives=(PrimitiveCall("extend_to_boundary", target="src", params={"source": "full_boundary", "direction": "right"}),))
+        output = execute_program(program, plan, grid, "preserve_input_size")
+        self.assertEqual(
+            [
+                [0, 0, 0, 0, 0],
+                [0, 3, 3, 9, 0],
+                [0, 0, 0, 0, 0],
+            ],
+            output,
+        )
+
+    def test_extend_to_boundary_nearest_boundary_uses_documented_tie_break(self) -> None:
+        grid = [
+            [0, 0, 0],
+            [0, 8, 0],
+            [0, 0, 0],
+        ]
+        plan = _multi_object_plan([_manual_object("obj0", {(1, 1)}, 8, 3, 3)])
+        program = Step1Program(primitives=(PrimitiveCall("extend_to_boundary", params={"source": "full_boundary", "direction": "nearest_boundary"}),))
+        output = execute_program(program, plan, grid, "preserve_input_size")
+        self.assertEqual(
+            [
+                [0, 8, 0],
+                [0, 8, 0],
+                [0, 0, 0],
+            ],
+            output,
+        )
+
+    def test_extend_to_boundary_to_nearest_object_boundary_prefers_overlapping_axis(self) -> None:
+        grid = [
+            [0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0],
+            [0, 4, 0, 0, 9, 0],
+            [0, 0, 0, 0, 0, 0],
+        ]
+        plan = _multi_object_plan(
+            [
+                _manual_object("src", {(2, 1)}, 4, 4, 6),
+                _manual_object("target", {(2, 4)}, 9, 4, 6),
+            ]
+        )
+        program = Step1Program(
+            primitives=(PrimitiveCall("extend_to_boundary", target="src", params={"source": "full_boundary", "direction": "to_nearest_object_boundary"}),)
+        )
+        output = execute_program(program, plan, grid, "preserve_input_size")
+        self.assertEqual(
+            [
+                [0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0],
+                [0, 4, 4, 4, 9, 0],
+                [0, 0, 0, 0, 0, 0],
+            ],
+            output,
+        )
+
+    def test_extend_to_boundary_horizontal_both_extends_independently(self) -> None:
+        grid = [
+            [0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 9, 0, 0, 8, 0],
+            [0, 0, 0, 0, 0, 0, 0],
+        ]
+        plan = _multi_object_plan(
+            [
+                _manual_object("src", {(1, 3)}, 5, 3, 7),
+                _manual_object("left_block", {(1, 2)}, 9, 3, 7),
+                _manual_object("right_block", {(1, 5)}, 8, 3, 7),
+            ]
+        )
+        program = Step1Program(
+            primitives=(PrimitiveCall("extend_to_boundary", target="src", params={"source": "full_boundary", "direction": "horizontal_both"}),)
+        )
+        output = execute_program(program, plan, grid, "preserve_input_size")
+        self.assertEqual(
+            [
+                [0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 9, 5, 5, 8, 0],
+                [0, 0, 0, 0, 0, 0, 0],
+            ],
+            output,
+        )
+
+    def test_validate_program_rejects_unknown_extend_direction(self) -> None:
+        with self.assertRaises(ValueError):
+            validate_step1_program(
+                Step1Program(primitives=(PrimitiveCall("extend_to_boundary", params={"source": "full_boundary", "direction": "diagonal"}),))
+            )
+
+    def test_validate_program_rejects_unknown_extend_source(self) -> None:
+        with self.assertRaises(ValueError):
+            validate_step1_program(
+                Step1Program(primitives=(PrimitiveCall("extend_to_boundary", params={"source": "mask:custom", "direction": "right"}),))
+            )
+
+    def test_extend_to_boundary_center_row_extends_only_middle_row(self) -> None:
+        grid = [
+            [0, 0, 0, 0, 0, 0],
+            [0, 5, 5, 5, 0, 0],
+            [0, 5, 5, 5, 0, 0],
+            [0, 5, 5, 5, 0, 0],
+            [0, 0, 0, 0, 0, 0],
+        ]
+        plan = _multi_object_plan([_manual_object("obj0", {(1, 1), (1, 2), (1, 3), (2, 1), (2, 2), (2, 3), (3, 1), (3, 2), (3, 3)}, 5, 5, 6)])
+        program = Step1Program(
+            primitives=(PrimitiveCall("extend_to_boundary", params={"source": "center_row", "direction": "right"}),)
+        )
+        output = execute_program(program, plan, grid, "preserve_input_size")
+        self.assertEqual(
+            [
+                [0, 0, 0, 0, 0, 0],
+                [0, 5, 5, 5, 0, 0],
+                [0, 5, 5, 5, 5, 5],
+                [0, 5, 5, 5, 0, 0],
+                [0, 0, 0, 0, 0, 0],
+            ],
+            output,
+        )
+
+    def test_extend_to_boundary_bottom_edge_extends_toward_nearest_object(self) -> None:
+        grid = [
+            [0, 6, 0, 0, 0, 0],
+            [0, 6, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0],
+            [3, 3, 3, 3, 3, 0],
+            [0, 0, 0, 0, 0, 0],
+        ]
+        plan = _multi_object_plan(
+            [
+                _manual_object("vert", {(0, 1), (1, 1)}, 6, 6, 6),
+                _manual_object("horiz", {(4, 0), (4, 1), (4, 2), (4, 3), (4, 4)}, 3, 6, 6),
+            ]
+        )
+        program = Step1Program(
+            primitives=(PrimitiveCall("extend_to_boundary", target="vert", params={"source": "bottom_edge", "direction": "to_nearest_object_boundary"}),)
+        )
+        output = execute_program(program, plan, grid, "preserve_input_size")
+        self.assertEqual(
+            [
+                [0, 6, 0, 0, 0, 0],
+                [0, 6, 0, 0, 0, 0],
+                [0, 6, 0, 0, 0, 0],
+                [0, 6, 0, 0, 0, 0],
+                [3, 3, 3, 3, 3, 0],
+                [0, 0, 0, 0, 0, 0],
+            ],
+            output,
+        )
+
+    def test_translate_to_boundary_symbol_moves_asymmetric_object_to_canvas_edge(self) -> None:
+        grid = [
+            [0, 0, 0, 0, 0],
+            [0, 4, 0, 0, 0],
+            [0, 4, 4, 0, 0],
+            [0, 0, 0, 0, 0],
+        ]
+        plan = _multi_object_plan([_manual_object("obj0", {(1, 1), (2, 1), (2, 2)}, 4, 4, 5)])
+        program = Step1Program(primitives=(PrimitiveCall("translate", target="all", params={"dx": "to_boundary_dx", "dy": "to_boundary_dy"}),))
+        output = execute_program(program, plan, grid, "preserve_input_size")
+        self.assertEqual(
+            [
+                [0, 0, 0, 0, 0],
+                [0, 0, 0, 4, 0],
+                [0, 0, 0, 4, 4],
+                [0, 0, 0, 0, 0],
+            ],
+            output,
+        )
+
+    def test_translate_to_boundary_symbol_moves_multiple_objects_to_shared_direction(self) -> None:
+        grid = [
+            [0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0],
+            [0, 7, 0, 0, 0],
+            [0, 7, 0, 8, 0],
+            [0, 7, 0, 8, 0],
+            [0, 0, 0, 0, 0],
+        ]
+        plan = _multi_object_plan(
+            [
+                _manual_object("left", {(2, 1), (3, 1), (4, 1)}, 7, 6, 5),
+                _manual_object("right", {(3, 3), (4, 3)}, 8, 6, 5),
+            ]
+        )
+        program = Step1Program(primitives=(PrimitiveCall("translate", target="all", params={"dx": "to_boundary_dx", "dy": "to_boundary_dy"}),))
+        output = execute_program(program, plan, grid, "preserve_input_size")
+        self.assertEqual(
+            [
+                [0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0],
+                [0, 7, 0, 0, 0],
+                [0, 7, 0, 8, 0],
+                [0, 7, 0, 8, 0],
+            ],
+            output,
+        )
+
+    def test_translate_to_nearest_object_symbol_moves_only_selected_mover(self) -> None:
+        grid = [
+            [5, 0, 0, 0, 2],
+            [0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0],
+            [0, 0, 9, 0, 0],
+        ]
+        plan = _multi_object_plan(
+            [
+                _manual_object("mover", {(0, 0)}, 5, 5, 5),
+                _manual_object("near", {(0, 4)}, 2, 5, 5),
+                _manual_object("far", {(4, 2)}, 9, 5, 5),
+            ]
+        )
+        program = Step1Program(primitives=(PrimitiveCall("translate", target="all", params={"dx": "to_nearest_object_dx", "dy": "to_nearest_object_dy"}),))
+        output = execute_program(program, plan, grid, "preserve_input_size")
+        self.assertEqual(
+            [
+                [0, 0, 0, 5, 2],
+                [0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0],
+                [0, 0, 9, 0, 0],
+            ],
+            output,
+        )
+
+    def test_delete_noise_objects_selector_removes_small_objects(self) -> None:
+        grid = [
+            [7, 7, 7, 0, 8, 8, 8],
+            [7, 7, 7, 0, 8, 8, 8],
+            [7, 7, 7, 0, 8, 8, 8],
+            [0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 3, 0],
+            [0, 0, 0, 0, 0, 0, 4],
+        ]
+        plan = _multi_object_plan(
+            [
+                _manual_object("large0", {(r, c) for r in range(3) for c in range(3)}, 7, 6, 7),
+                _manual_object("large1", {(r, c) for r in range(3) for c in range(4, 7)}, 8, 6, 7),
+                _manual_object("noise0", {(4, 5)}, 3, 6, 7),
+                _manual_object("noise1", {(5, 6)}, 4, 6, 7),
+            ]
+        )
+        program = Step1Program(primitives=(PrimitiveCall("delete", target="noise_objects"),))
+        output = execute_program(program, plan, grid, "preserve_input_size")
+        self.assertEqual(0, output[4][5])
+        self.assertEqual(0, output[5][6])
+
+    def test_delete_boundary_adjacent_selector_removes_border_objects(self) -> None:
+        grid = [
+            [8, 0, 0],
+            [0, 5, 0],
+            [0, 0, 9],
+        ]
+        plan = _multi_object_plan(
+            [
+                _manual_object("top_left", {(0, 0)}, 8, 3, 3),
+                _manual_object("center", {(1, 1)}, 5, 3, 3),
+                _manual_object("bottom_right", {(2, 2)}, 9, 3, 3),
+            ]
+        )
+        program = Step1Program(primitives=(PrimitiveCall("delete", target="boundary_adjacent"),))
+        output = execute_program(program, plan, grid, "preserve_input_size")
+        self.assertEqual([[0, 0, 0], [0, 5, 0], [0, 0, 0]], output)
+
+    def test_translate_with_noise_objects_selector_is_rejected(self) -> None:
+        grid = [[1, 0], [0, 2]]
+        plan = _multi_object_plan(
+            [
+                _manual_object("a", {(0, 0)}, 1, 2, 2),
+                _manual_object("b", {(1, 1)}, 2, 2, 2),
+            ]
+        )
+        program = Step1Program(primitives=(PrimitiveCall("translate", target="noise_objects", params={"dx": 1}),))
+        with self.assertRaises(ValueError):
+            execute_program(program, plan, grid, "preserve_input_size")
 
     def test_parse_program_supports_three_primitives_and_extend(self) -> None:
         program = parse_program(

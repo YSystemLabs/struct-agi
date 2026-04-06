@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from statistics import mean
+from statistics import mean, median
 
 from phase1.src.step2.config import STEP2_BEAM_SIZE, STEP2_TRAIN_TASKS
 from phase1.src.step2.data.models import Alignment, ArcTask, Attribution, CandidateConstraint, CandidateTransform, Grid, Hypothesis, SearchStats, to_jsonable
@@ -42,6 +42,14 @@ def run_task(task: ArcTask, output_dir: str | Path) -> Attribution:
             "pair_index": item["pair_index"],
             "input": to_jsonable(item["input"]),
             "output": to_jsonable(item["output"]),
+        }
+        for item in train_perception
+    ]
+    debug_bundle["diagnostics"] = [
+        {
+            "pair_index": item["pair_index"],
+            "input_plans": _plan_diagnostics(item["input"]),
+            "output_plans": _plan_diagnostics(item["output"]),
         }
         for item in train_perception
     ]
@@ -361,3 +369,26 @@ def _selection_failure_detail(
     if not hypotheses:
         return "CONSTRAINT_SUBSET_ERROR"
     return "PROGRAM_ERROR"
+
+
+def _plan_diagnostics(perception_output) -> list[dict[str, object]]:
+    diagnostics: list[dict[str, object]] = []
+    for plan in perception_output.segmentation_plans:
+        areas = sorted(int(obj.attrs.get("area", 0)) for obj in plan.objects)
+        threshold = float(median(areas)) / 4.0 if areas else 0.0
+        selected_ids = [obj.id for obj in plan.objects if float(obj.attrs.get("area", 0)) < threshold]
+        diagnostics.append(
+            {
+                "plan_id": plan.plan_id,
+                "method": plan.method,
+                "bg_color": plan.bg_color,
+                "object_count": len(plan.objects),
+                "object_areas": areas,
+                "noise_objects": {
+                    "threshold": threshold,
+                    "selected_ids": selected_ids,
+                    "selected_count": len(selected_ids),
+                },
+            }
+        )
+    return diagnostics

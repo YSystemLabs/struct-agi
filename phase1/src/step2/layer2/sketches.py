@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import Counter
 
 from phase1.src.step2.data.models import CandidateConstraint, CandidateSet, CandidateTransform, ObjectData, SegmentationPlan
-from phase1.src.step2.layer2.diff import classify_object_diff
+from phase1.src.step2.layer2.diff import classify_object_diff, match_extend_to_boundary_directions
 from phase1.src.step2.layer4.dsl import CopyBlock, CopyClause, PrimitiveCall, Step1Program, render_program
 from phase1.src.step2.utils.ids import make_pair_transform_id
 
@@ -21,7 +21,7 @@ def generate_candidate_transforms(
     for input_id, output_id, score in alignment.matched_pairs:
         input_obj = input_by_id[input_id]
         output_obj = output_by_id[output_id]
-        diff_type = classify_object_diff(input_obj, output_obj)
+        diff_type = classify_object_diff(input_obj, output_obj, input_plan.objects)
         for program in _programs_for_diff(diff_type, input_obj, output_obj, input_plan, output_plan):
             transforms.append(
                 CandidateTransform(
@@ -104,11 +104,14 @@ def _programs_for_diff(
                 )
             )
         return _dedupe_programs(programs)
-    if diff_type == "translate":
+    if diff_type in {"translate", "boundary_translate"}:
         dy = output_obj.bbox[0] - input_obj.bbox[0]
         dx = output_obj.bbox[1] - input_obj.bbox[1]
-        translate_params = _translate_param_candidates(input_obj, dx, dy)
+        translate_params = _translate_param_candidates(input_obj, dx, dy, input_plan.objects)
         for params in translate_params:
+            programs.append(
+                Step1Program(primitives=(PrimitiveCall("translate", target="all", params=params),))
+            )
             programs.append(
                 Step1Program(primitives=(PrimitiveCall("translate", target=input_obj.id, params=params),))
             )
@@ -191,6 +194,81 @@ def _programs_for_diff(
                 )
             )
         return _dedupe_programs(programs)
+    if diff_type == "extend_to_boundary":
+        specs = match_extend_to_boundary_directions(input_obj, output_obj, input_plan.objects)
+        for source, direction in specs:
+            programs.append(
+                Step1Program(
+                    primitives=(
+                        PrimitiveCall(
+                            "extend_to_boundary",
+                            target=input_obj.id,
+                            params={"source": source, "direction": direction},
+                        ),
+                    )
+                )
+            )
+            if _is_center_object(input_obj, input_plan):
+                programs.append(
+                    Step1Program(
+                        primitives=(
+                            PrimitiveCall(
+                                "extend_to_boundary",
+                                target="center_object",
+                                params={"source": source, "direction": direction},
+                            ),
+                        )
+                    )
+                )
+            if _is_largest_object(input_obj, input_plan) and input_plan.method == "bg_fg":
+                programs.append(
+                    Step1Program(
+                        primitives=(
+                            PrimitiveCall(
+                                "extend_to_boundary",
+                                target="largest_object",
+                                params={"source": source, "direction": direction},
+                            ),
+                        )
+                    )
+                )
+            if _is_smallest_object(input_obj, input_plan):
+                programs.append(
+                    Step1Program(
+                        primitives=(
+                            PrimitiveCall(
+                                "extend_to_boundary",
+                                target="smallest_object",
+                                params={"source": source, "direction": direction},
+                            ),
+                        )
+                    )
+                )
+            if _is_rare_color_object(input_obj, input_plan):
+                programs.append(
+                    Step1Program(
+                        primitives=(
+                            PrimitiveCall(
+                                "extend_to_boundary",
+                                target="rare_color_object",
+                                params={"source": source, "direction": direction},
+                            ),
+                        )
+                    )
+                )
+            if _is_gap_thinner_object(input_obj, input_plan):
+                programs.append(
+                    Step1Program(
+                        primitives=(
+                            PrimitiveCall(
+                                "extend_to_boundary",
+                                target="gap_thinner_object",
+                                params={"source": source, "direction": direction},
+                            ),
+                        )
+                    )
+                )
+        return _dedupe_programs(programs)
     if diff_type == "recolor":
         color = int(output_obj.attrs.get("dominant_color", 0))
         return [Step1Program(primitives=(PrimitiveCall("recolor", target=input_obj.id, params={"color": color}),))]
@@ -219,7 +297,6 @@ def _programs_for_diff(
         return [Step1Program(primitives=(PrimitiveCall("rotate", target=input_obj.id, params={"quarter_turns": 1}),))]
     programs.extend(_delete_programs(input_obj, input_plan))
     return _dedupe_programs(programs)
-
 
 def _is_center_cell_fill(input_obj: ObjectData, output_obj: ObjectData) -> bool:
     added_pixels = output_obj.pixels - input_obj.pixels
@@ -320,7 +397,12 @@ def _should_add_rare_color_motif_translate(
     return int(input_obj.attrs.get("dominant_color", 0)) == int(output_obj.attrs.get("dominant_color", 0))
 
 
-def _translate_param_candidates(input_obj: ObjectData, dx: int, dy: int) -> list[dict[str, int | str]]:
+def _translate_param_candidates(
+    input_obj: ObjectData,
+    dx: int,
+    dy: int,
+    context_objects: list[ObjectData],
+) -> list[dict[str, int | str]]:
     params = [{"dy": dy, "dx": dx}]
     symbolic_dx = _match_symbolic_offset(dx, input_obj, axis="x")
     symbolic_dy = _match_symbolic_offset(dy, input_obj, axis="y")
@@ -331,7 +413,22 @@ def _translate_param_candidates(input_obj: ObjectData, dx: int, dy: int) -> list
                 "dx": symbolic_dx if symbolic_dx is not None else dx,
             }
         )
-    return params
+    boundary_offsets = _boundary_offsets(input_obj, context_objects)
+    if boundary_offsets is not None and boundary_offsets == (dx, dy):
+        params.append({"dx": "to_boundary_dx", "dy": "to_boundary_dy"})
+    nearest_object_offsets = _nearest_object_offsets(input_obj, context_objects)
+    if nearest_object_offsets is not None and nearest_object_offsets == (dx, dy):
+        params.append({"dx": "to_nearest_object_dx", "dy": "to_nearest_object_dy"})
+
+    deduped: list[dict[str, int | str]] = []
+    seen: set[tuple[tuple[str, int | str], ...]] = set()
+    for candidate in params:
+        key = tuple(sorted(candidate.items()))
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(candidate)
+    return deduped
 
 
 def _match_symbolic_offset(offset: int, input_obj: ObjectData, axis: str) -> str | None:
@@ -352,6 +449,155 @@ def _match_symbolic_offset(offset: int, input_obj: ObjectData, axis: str) -> str
         if offset == -value:
             return f"-{symbol}"
     return None
+
+
+def _boundary_offsets(input_obj: ObjectData, context_objects: list[ObjectData]) -> tuple[int, int] | None:
+    canvas_height = int(input_obj.attrs.get("canvas_height", 0))
+    canvas_width = int(input_obj.attrs.get("canvas_width", 0))
+    if canvas_height <= 0 or canvas_width <= 0:
+        return None
+    direction = _boundary_direction(input_obj, context_objects)
+    min_row, min_col, max_row, max_col = input_obj.bbox
+    if direction == "up":
+        return (0, -min_row)
+    if direction == "down":
+        return (0, canvas_height - 1 - max_row)
+    if direction == "left":
+        return (-min_col, 0)
+    return (canvas_width - 1 - max_col, 0)
+
+
+def _nearest_object_offsets(input_obj: ObjectData, context_objects: list[ObjectData]) -> tuple[int, int] | None:
+    others = [obj for obj in context_objects if obj.id != input_obj.id]
+    if not others:
+        return None
+    mover = _nearest_object_mover(context_objects)
+    if mover is None or mover.id != input_obj.id:
+        return None
+
+    best: tuple[tuple[int, int, int, str], tuple[int, int]] | None = None
+    min_row, min_col, max_row, max_col = input_obj.bbox
+    for other in others:
+        other_min_row, other_min_col, other_max_row, other_max_col = other.bbox
+        candidates: list[tuple[int, int]] = []
+        if _overlap_1d(min_row, max_row, other_min_row, other_max_row):
+            candidates.append((other_min_col - max_col - 1, 0))
+            candidates.append((other_max_col - min_col + 1, 0))
+        if _overlap_1d(min_col, max_col, other_min_col, other_max_col):
+            candidates.append((0, other_min_row - max_row - 1))
+            candidates.append((0, other_max_row - min_row + 1))
+        if not candidates:
+            candidates.extend(
+                [
+                    (other_min_col - max_col - 1, other_min_row - max_row - 1),
+                    (other_min_col - max_col - 1, other_max_row - min_row + 1),
+                    (other_max_col - min_col + 1, other_min_row - max_row - 1),
+                    (other_max_col - min_col + 1, other_max_row - min_row + 1),
+                ]
+            )
+        for dx, dy in candidates:
+            score = (abs(dx) + abs(dy), abs(dy), abs(dx), other.id)
+            if best is None or score < best[0]:
+                best = (score, (dx, dy))
+    return best[1] if best is not None else None
+
+
+def _boundary_direction(input_obj: ObjectData, context_objects: list[ObjectData]) -> str:
+    if len(context_objects) == 1:
+        return _single_object_boundary_direction(input_obj)
+
+    largest = max(context_objects, key=lambda obj: (int(obj.attrs.get("area", 0)), tuple(-value for value in obj.bbox), obj.id))
+    height = largest.bbox[2] - largest.bbox[0] + 1
+    width = largest.bbox[3] - largest.bbox[1] + 1
+    if height > width:
+        top_distance = sum(obj.bbox[0] for obj in context_objects)
+        bottom_distance = sum(int(obj.attrs.get("canvas_height", 0)) - 1 - obj.bbox[2] for obj in context_objects)
+        return "up" if top_distance <= bottom_distance else "down"
+    if width > height:
+        left_distance = sum(obj.bbox[1] for obj in context_objects)
+        right_distance = sum(int(obj.attrs.get("canvas_width", 0)) - 1 - obj.bbox[3] for obj in context_objects)
+        return "left" if left_distance <= right_distance else "right"
+    return _single_object_boundary_direction(largest)
+
+
+def _single_object_boundary_direction(input_obj: ObjectData) -> str:
+    min_row, min_col, max_row, max_col = input_obj.bbox
+    height = max_row - min_row + 1
+    width = max_col - min_col + 1
+    top_edge = sum(1 for row, _ in input_obj.pixels if row == min_row)
+    bottom_edge = sum(1 for row, _ in input_obj.pixels if row == max_row)
+    if width > height and bottom_edge != top_edge:
+        return "right" if bottom_edge > top_edge else "left"
+
+    mid_row = (min_row + max_row) / 2
+    mid_col = (min_col + max_col) / 2
+    top_half = sum(1 for row, _ in input_obj.pixels if row < mid_row)
+    bottom_half = sum(1 for row, _ in input_obj.pixels if row > mid_row)
+    left_half = sum(1 for _, col in input_obj.pixels if col < mid_col)
+    right_half = sum(1 for _, col in input_obj.pixels if col > mid_col)
+    if abs(left_half - right_half) >= abs(top_half - bottom_half) and left_half != right_half:
+        return "right" if left_half > right_half else "left"
+    if top_half != bottom_half:
+        return "down" if top_half > bottom_half else "up"
+    return "right"
+
+
+def _nearest_object_mover(context_objects: list[ObjectData]) -> ObjectData | None:
+    if len(context_objects) < 2:
+        return None
+    best: tuple[int, float, int, int, str] | None = None
+    chosen: ObjectData | None = None
+    for index, obj in enumerate(context_objects):
+        for other in context_objects[index + 1 :]:
+            gap = _bbox_gap(obj.bbox, other.bbox)
+            for candidate in (obj, other):
+                score = (
+                    gap,
+                    _grid_center_distance(candidate),
+                    _boundary_touch_count(candidate),
+                    int(candidate.attrs.get("area", 0)),
+                    candidate.id,
+                )
+                if best is None or score < best:
+                    best = score
+                    chosen = candidate
+    return chosen
+
+
+def _grid_center_distance(obj: ObjectData) -> float:
+    canvas_height = int(obj.attrs.get("canvas_height", 0))
+    canvas_width = int(obj.attrs.get("canvas_width", 0))
+    grid_center_row = (canvas_height - 1) / 2
+    grid_center_col = (canvas_width - 1) / 2
+    return abs(float(obj.attrs.get("center_row", 0.0)) - grid_center_row) + abs(
+        float(obj.attrs.get("center_col", 0.0)) - grid_center_col
+    )
+
+
+def _boundary_touch_count(obj: ObjectData) -> int:
+    canvas_height = int(obj.attrs.get("canvas_height", 0))
+    canvas_width = int(obj.attrs.get("canvas_width", 0))
+    min_row, min_col, max_row, max_col = obj.bbox
+    return sum(
+        (
+            min_row == 0,
+            min_col == 0,
+            max_row == canvas_height - 1,
+            max_col == canvas_width - 1,
+        )
+    )
+
+
+def _bbox_gap(a_bbox: tuple[int, int, int, int], b_bbox: tuple[int, int, int, int]) -> int:
+    a_min_row, a_min_col, a_max_row, a_max_col = a_bbox
+    b_min_row, b_min_col, b_max_row, b_max_col = b_bbox
+    row_gap = max(0, max(b_min_row - a_max_row - 1, a_min_row - b_max_row - 1))
+    col_gap = max(0, max(b_min_col - a_max_col - 1, a_min_col - b_max_col - 1))
+    return row_gap + col_gap
+
+
+def _overlap_1d(a_min: int, a_max: int, b_min: int, b_max: int) -> bool:
+    return not (a_max < b_min or b_max < a_min)
 
 
 def _is_center_object(input_obj: ObjectData, input_plan: SegmentationPlan) -> bool:
@@ -381,6 +627,58 @@ def _is_rare_color_object(input_obj: ObjectData, input_plan: SegmentationPlan) -
         ),
     )
     return selected.id == input_obj.id
+
+
+def _is_gap_thinner_object(input_obj: ObjectData, input_plan: SegmentationPlan) -> bool:
+    selected = _select_gap_thinner_object(input_plan.objects)
+    return selected is not None and selected.id == input_obj.id
+
+
+def _select_gap_thinner_object(objects: list[ObjectData]) -> ObjectData | None:
+    gap_pair = _select_single_axis_gap_pair(objects)
+    if gap_pair is None:
+        return None
+    axis, first, second = gap_pair
+    if axis == "vertical":
+        return min(
+            (first, second),
+            key=lambda obj: (int(obj.attrs.get("width", 0)), int(obj.attrs.get("area", 0)), obj.id),
+        )
+    return min(
+        (first, second),
+        key=lambda obj: (int(obj.attrs.get("height", 0)), int(obj.attrs.get("area", 0)), obj.id),
+    )
+
+
+def _select_single_axis_gap_pair(objects: list[ObjectData]) -> tuple[str, ObjectData, ObjectData] | None:
+    best: tuple[int, int, str, str] | None = None
+    chosen: tuple[str, ObjectData, ObjectData] | None = None
+    for index, obj in enumerate(objects):
+        for other in objects[index + 1 :]:
+            gap_info = _single_axis_gap_info(obj.bbox, other.bbox)
+            if gap_info is None:
+                continue
+            axis, gap = gap_info
+            score = (gap, 0 if axis == "vertical" else 1, obj.id, other.id)
+            if best is None or score < best:
+                best = score
+                chosen = (axis, obj, other)
+    return chosen
+
+
+def _single_axis_gap_info(
+    a_bbox: tuple[int, int, int, int],
+    b_bbox: tuple[int, int, int, int],
+) -> tuple[str, int] | None:
+    a_min_row, a_min_col, a_max_row, a_max_col = a_bbox
+    b_min_row, b_min_col, b_max_row, b_max_col = b_bbox
+    row_gap = max(b_min_row - a_max_row - 1, a_min_row - b_max_row - 1)
+    col_gap = max(b_min_col - a_max_col - 1, a_min_col - b_max_col - 1)
+    if row_gap > 0 and col_gap <= 0 and _overlap_1d(a_min_col, a_max_col, b_min_col, b_max_col):
+        return ("vertical", row_gap)
+    if col_gap > 0 and row_gap <= 0 and _overlap_1d(a_min_row, a_max_row, b_min_row, b_max_row):
+        return ("horizontal", col_gap)
+    return None
 
 
 def _select_center_object(objects: list[ObjectData], attrs: dict[str, int | float]) -> ObjectData | None:

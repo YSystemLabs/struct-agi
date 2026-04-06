@@ -2,7 +2,7 @@
 
 本目录对应第一阶段工作区，目标是围绕 ARC-AGI-2 与 ConceptARC 建立最小可证伪的结构学习闭环。
 
-当前状态：Step 1 已完成“最小闭环已实施冻结”的验收；Step 2 尚未开始。Step 1 当前在 Copy1-6 与 Center1-6 的 12 个训练任务上得到 6 个精确求解、6 个 `ABSTRACTION_FAIL`，结论偏积极但不夸大，意味着主链路已跑通，后续应进入 Step 2 而不是继续在 Step 1 内扩边界。
+当前状态：Step 1 已冻结，Step 2 已实施到 Step 2b 验收阶段，主文档当前处于“Step 2 已验收冻结，Step 3 准备阶段”。当前稳定结果为：Step 2a 在 Copy1-6 与 Center1-6 上达到 8/12，按“有条件通过”接受；Step 2b 在新增四个概念组上达到 MoveToBoundary 3/6、ExtendToBoundary 2/6、ExtractObjects 2/6，并将 CleanUp 冻结为未收口能力缺口。下一步不是直接启动增长，而是进入 Step 3A，先处理 Step 2 显式移交的残差能力。
 
 ## 目录结构
 
@@ -17,18 +17,28 @@ phase1/
 ├── docs/
 │   ├── 第一阶段研究计划-0v1.md
 │   ├── 第一阶段算法架构-0v4.md
-│   └── step1/
-│       ├── Step1实现设计-0v1.md
-│       ├── Step1最小接口与任务清单附录-0v1.md
-│       ├── Step1实现任务分解清单-0v1.md
-│       └── Step1实验与验收报告-0v1.md
+│   ├── step1/
+│   │   ├── Step1实现设计-0v1.md
+│   │   ├── Step1最小接口与任务清单附录-0v1.md
+│   │   ├── Step1实现任务分解清单-0v1.md
+│   │   └── Step1实验与验收报告-0v1.md
+│   └── step2/
+│       ├── Step2实现设计-0v1.md
+│       ├── Step2最小接口与任务清单附录-0v1.md
+│       ├── Step2实现任务分解清单-0v1.md
+│       ├── Step2a实验与验收报告-0v1.md
+│       └── Step2b实验与验收报告-0v1.md
 ├── src/
-│   └── step1/
+│   ├── step1/
+│   └── step2/
 ├── tests/
-│   └── step1/
+│   ├── step1/
+│   └── step2/
 ├── outputs/
 │   ├── previews/
-│   └── step1/
+│   ├── step1/
+│   ├── step2/
+│   └── phase9_full/
 └── scripts/
     ├── build_render_gallery.py
     └── render_task_json.py
@@ -39,18 +49,25 @@ phase1/
 - `datasets/raw/`：外部下载的原始数据，不纳入 git。
 - `docs/`：阶段计划、设计说明、实验记录等文档。
 - `docs/step1/`：Step 1 冻结边界、实现设计、接口附录、实验与验收报告。
-- `src/step1/`：Step 1 当前实现代码，按 Layer 1-5、runner、utils 组织。
+- `docs/step2/`：Step 2 设计、冻结边界、阶段验收与全量回归说明。
+- `src/step1/`：Step 1 冻结实现代码。
+- `src/step2/`：Step 2 当前主线实现代码，按 Layer 1-5、runner、utils 组织。
 - `tests/step1/`：Step 1 单元测试与接口冻结测试。
+- `tests/step2/`：Step 2 单元测试、runner 与报告链路测试。
 - `scripts/`：阶段内会反复使用的工具脚本。
 - `outputs/step1/`：Step 1 debug bundle、attributions、summary 等实验输出。
+- `outputs/step2/`：Step 2 中间批次、诊断与局部实验输出。
+- `outputs/phase9_full/`：当前 36 任务全量回归产物。
 - `outputs/`：渲染结果、gallery、临时实验产物等可再生输出。
 
-## Step 1 关键入口
+## 当前关键入口
 
 - 研究计划：[docs/第一阶段研究计划-0v1.md](docs/第一阶段研究计划-0v1.md)
 - 总架构：[docs/第一阶段算法架构-0v4.md](docs/第一阶段算法架构-0v4.md)
 - Step 1 实验与验收报告：[docs/step1/Step1实验与验收报告-0v1.md](docs/step1/Step1实验与验收报告-0v1.md)
-- Step 1 运行摘要：[outputs/step1/reports/summary.json](outputs/step1/reports/summary.json)
+- Step 2 实现设计：[docs/step2/Step2实现设计-0v1.md](docs/step2/Step2实现设计-0v1.md)
+- Step 2b 实验与验收报告：[docs/step2/Step2b实验与验收报告-0v1.md](docs/step2/Step2b实验与验收报告-0v1.md)
+- Step 2 全量回归摘要：[outputs/phase9_full/reports/summary.json](outputs/phase9_full/reports/summary.json)
 
 ## 脚本
 
@@ -87,10 +104,24 @@ python3 -m phase1.src.step1.runner.batch_runner
 
 运行后会在 `phase1/outputs/step1/reports/` 下生成 `summary.json`、`summary.md` 与 `attributions.json`。
 
-### 5. 运行 Step 1 测试
+### 5. 运行 Step 2 全量回归
+
+```bash
+python3 -m phase1.src.step2.runner.batch_runner --output-dir phase1/outputs/phase9_full --stage all
+```
+
+运行后会在 `phase1/outputs/phase9_full/reports/` 下生成 `summary.json`、`summary.md`、`attributions.json` 与 `regression_flags.json`。若只想跑单阶段或单概念组，可使用 `--stage 2a|2b|all` 和 `--group`。
+
+### 6. 运行 Step 1 测试
 
 ```bash
 python3 -m unittest discover -s phase1/tests/step1
+```
+
+### 7. 运行 Step 2 测试
+
+```bash
+python3 -m unittest discover -s phase1/tests/step2 -p "test_*.py"
 ```
 
 ## 本地预览
@@ -111,12 +142,6 @@ python3 -m http.server 8765
 
 ```text
 http://127.0.0.1:8765/phase1/outputs/previews/full/index.html
-```
-
-小样本预览示例：
-
-```text
-http://127.0.0.1:8765/phase1/outputs/previews/demo/index.html
 ```
 
 如果你重新渲染到别的输出目录，只需要把 URL 后半段替换成对应的 `phase1/outputs/previews/.../index.html` 路径即可。
