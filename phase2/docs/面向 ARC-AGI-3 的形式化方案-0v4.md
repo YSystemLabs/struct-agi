@@ -308,7 +308,7 @@ $$
 
 $$
 L_t=
-\operatorname{arg\,max}_{Y,\ \mathrm{cost}(Y)\le B_t}
+\mathop{\mathrm{arg\,max}}_{Y,\ \mathrm{cost}(Y)\le B_t}
 \sum_{x\in Y}
 \Big(
 \alpha\,\Delta V_{\text{solve}}(x)
@@ -489,7 +489,7 @@ $$
 ## 8.2 动作效用保持不变
 
 $$
-a_t=\operatorname{arg\,max}_{a\in\mathcal A(i_t)} J(a\mid i_t,\mu_t,{X_b^t})
+a_t=\mathop{\mathrm{arg\,max}}_{a\in\mathcal A(i_t)} J(a\mid i_t,\mu_t,{X_b^t})
 $$
 
 其中：

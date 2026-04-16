@@ -351,7 +351,7 @@ $$
 定义：
 
 $$
-a_t=\operatorname{arg\,max}_{a\in\mathcal A(i_t)} J(a\mid i_t,\mu_t,{X_b^t})
+a_t=\mathop{\mathrm{arg\,max}}_{a\in\mathcal A(i_t)} J(a\mid i_t,\mu_t,{X_b^t})
 $$
 
 其中
