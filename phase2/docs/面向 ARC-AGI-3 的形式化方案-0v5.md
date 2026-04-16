@@ -266,7 +266,7 @@ $$
 $$
 a_t^{\text{probe-task}}
 =
-\operatorname*{arg\,max}_a
+\operatorname{arg\,max}_a
 \mathbb{E}\left[
 H(\mu_t) - H(\mu_{t+1})
 \mid i_t, \mu_t, a
@@ -278,7 +278,7 @@ $$
 $$
 a_t^{\text{probe-task}}
 =
-\operatorname*{arg\,max}_a I(B; O_{t+1} \mid i_t, a)
+\operatorname{arg\,max}_a I(B; O_{t+1} \mid i_t, a)
 $$
 
 其中 $B$ 是任务语境随机变量。
@@ -401,7 +401,7 @@ $$
 $$
 L_t
 =
-\operatorname*{arg\,max}_{Y,\ \mathrm{cost}(Y) \le B_t}
+\operatorname{arg\,max}_{Y,\ \mathrm{cost}(Y) \le B_t}
 \sum_{x \in Y} \mathrm{Value}_t(x)
 $$
 
@@ -583,7 +583,7 @@ $$
 $$
 a_t^{\text{exploit}}
 =
-\operatorname*{arg\,max}_{a \in \mathcal A(i_t)}
+\operatorname{arg\,max}_{a \in \mathcal A(i_t)}
 \mathbb{E}\left[
 V_{\text{solve}}(a)
 - \lambda_{\text{cost}} c(a)
@@ -596,7 +596,7 @@ $$
 $$
 a_t^{\text{probe}}
 =
-\operatorname*{arg\,max}_{a \in \mathcal A(i_t)}
+\operatorname{arg\,max}_{a \in \mathcal A(i_t)}
 \left(
 \alpha\,I(B; O_{t+1} \mid i_t, a)
 + \beta\,I(E; O_{t+1} \mid i_t, a)
