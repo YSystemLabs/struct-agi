@@ -385,11 +385,11 @@ $$
 
 也就是说：
 
-$$
+```math
 \mathcal C_{b,t+1}^{str}
 =
 \mathcal C_{b,t}^{str}\cup D_b^t(i_t,X_b^t,K_t)
-$$
+```
 
 然后再由惰性机制决定哪些候选进入 $A_{b,t+1}^{str}$。
 
@@ -399,22 +399,22 @@ $$
 
 仍采用：
 
-$$
+```math
 \mathrm{Score}_t(b,e)
 =
 \mathrm{Fit}_t(b,e)
 -\lambda L_{\mathcal B}(b)
 -\gamma L_{\mathcal E}(e\mid b)
 +\beta \mathrm{VOI}_t(b,e)
-$$
+```
 
 或
 
-$$
+```math
 \mathrm{MDL}_t(b,e)
 =
 L_{\mathcal B}(b)+L_{\mathcal E}(e\mid b)+L_{\mathrm{res}}(h_t\mid b,e)
-$$
+```
 
 但在实现上只对：
 
@@ -584,19 +584,19 @@ $$
 
 #### Step 3：惰性选择
 
-$$
+```math
 (L_t^{obj},L_t^{evt},L_t^{str})
 =
 \mathrm{LazySelect}_t(\Sigma_{g,\ell,t},B_t)
-$$
+```
 
 #### Step 4：按需展开
 
-$$
+```math
 (i_t,{X_b^t}_b)
 =
 \mathrm{Force}_t(L_t^{obj},L_t^{evt},L_t^{str},i_t^{\text{coarse}},{X_b^{t-1}}_b)
-$$
+```
 
 #### Step 5：高权重任务语境下做结构发现
 

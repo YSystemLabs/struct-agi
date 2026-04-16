@@ -263,7 +263,7 @@ $$
 
 对任务层，v0.5 显式定义 probe 的首要信息目标为：
 
-$$
+```math
 a_t^{\text{probe-task}}
 =
 \operatorname{arg\,max}_a
@@ -271,15 +271,15 @@ a_t^{\text{probe-task}}
 H(\mu_t) - H(\mu_{t+1})
 \mid i_t, \mu_t, a
 \right]
-$$
+```
 
 或者等价写成：
 
-$$
+```math
 a_t^{\text{probe-task}}
 =
 \operatorname{arg\,max}_a I(B; O_{t+1} \mid i_t, a)
-$$
+```
 
 其中 $B$ 是任务语境随机变量。
 
@@ -380,14 +380,14 @@ $$
 
 但对每个候选 $x$ 的价值，v0.5 改写为：
 
-$$
+```math
 \mathrm{Value}_t(x)
 =
 \alpha\,\Delta I_{\text{task}}(x)
 + \beta\,\Delta I_{\text{model}}(x)
 + \gamma\,\Delta V_{\text{reuse}}(x)
 - \kappa\,\mathrm{ExpandCost}(x)
-$$
+```
 
 其中：
 
@@ -398,12 +398,12 @@ $$
 
 于是：
 
-$$
+```math
 L_t
 =
 \operatorname{arg\,max}_{Y,\ \mathrm{cost}(Y) \le B_t}
 \sum_{x \in Y} \mathrm{Value}_t(x)
-$$
+```
 
 ### 6.2 Force
 
@@ -428,28 +428,28 @@ $$
 
 延续 v0.3 / v0.4：
 
-$$
+```math
 \mathrm{Score}_t(b,e)
 =
 \mathrm{Fit}_t(b,e)
 - \lambda L_{\mathcal B}(b)
 - \gamma L_{\mathcal E}(e \mid b)
 + \beta \, \mathrm{VOI}_t(b,e)
-$$
+```
 
 或
 
-$$
+```math
 \mathrm{MDL}_t(b,e)
 =
 L_{\mathcal B}(b) + L_{\mathcal E}(e \mid b) + L_{\mathrm{res}}(h_t \mid b,e)
-$$
+```
 
 ### 7.2 v0.5 的统一改写
 
 v0.5 中，把 $\mathrm{VOI}$ 与后验收缩显式化：
 
-$$
+```math
 \mathrm{Score}_t^{(0.5)}(b,e)
 =
 \mathrm{Fit}_t(b,e)
@@ -457,18 +457,18 @@ $$
 - \gamma L_{\mathcal E}(e \mid b)
 + \beta\,\mathrm{EIG}_t(b,e)
 + \eta\,\mathrm{Shrink}_t(b,e)
-$$
+```
 
 其中：
 
-$$
+```math
 \mathrm{EIG}_t(b,e)
 =
 \mathbb{E}\left[
 D(\mu_{t+1} \,\|\, \mu_t)
 \mid b,e
 \right]
-$$
+```
 
 $\mathrm{Shrink}_t(b,e)$ 表示候选支持集收缩率。
 
@@ -515,14 +515,14 @@ $$
 
 定义：
 
-$$
+```math
 \mathrm{PromoteScore}_t(e)
 =
 \alpha\,\Delta \mathrm{Shrink}
 + \beta\,\Delta \mathrm{Reuse}
 + \gamma\,\Delta \mathrm{PlanStability}
 - \lambda\,\Delta \mathrm{Loss}_{\Phi}
-$$
+```
 
 其中 $\Delta \mathrm{Loss}_{\Phi}$ 表示提升前后预测通道差异。
 
@@ -580,7 +580,7 @@ $$
 
 ### 10.2 exploit 动作
 
-$$
+```math
 a_t^{\text{exploit}}
 =
 \operatorname{arg\,max}_{a \in \mathcal A(i_t)}
@@ -589,11 +589,11 @@ V_{\text{solve}}(a)
 - \lambda_{\text{cost}} c(a)
 - \lambda_{\text{risk}} r(a)
 \right]
-$$
+```
 
 ### 10.3 probe 动作
 
-$$
+```math
 a_t^{\text{probe}}
 =
 \operatorname{arg\,max}_{a \in \mathcal A(i_t)}
@@ -604,7 +604,7 @@ a_t^{\text{probe}}
 - \lambda_{\text{cost}} c(a)
 - \lambda_{\text{risk}} r(a)
 \right)
-$$
+```
 
 其中：
 
