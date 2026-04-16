@@ -351,7 +351,7 @@ $$
 定义：
 
 $$
-a_t=\arg\max_{a\in\mathcal A(i_t)} J(a\mid i_t,\mu_t,{X_b^t})
+a_t=\operatorname*{arg\,max}_{a\in\mathcal A(i_t)} J(a\mid i_t,\mu_t,{X_b^t})
 $$
 
 其中
@@ -419,47 +419,25 @@ $$
 
 ### 6.2 主循环
 
-对每一步 (t)：
+对每一步 $t$：
 
-1. **压缩历史**
-   $$
-   i_t=C_K(h_t)
-   $$
+1. **压缩历史**：$i_t=C_K(h_t)$
 
-2. **更新任务后验**
-   $$
-   \mu_t=\mathrm{UpdateTaskPosterior}(i_t,\mu_{t-1})
-   $$
+1. **更新任务后验**：$\mu_t=\mathrm{UpdateTaskPosterior}(i_t,\mu_{t-1})$
 
-3. **在高权重任务语境上发现结构**
-   对所有 $b$ with $\mu_t(b)$ 高于阈值，调用
-   $$
-   X_b^t \leftarrow D_b^t(i_t,X_b^{t-1},K)
-   $$
+1. **在高权重任务语境上发现结构**：对所有 $b$ with $\mu_t(b)$ 高于阈值，调用 $X_b^t \leftarrow D_b^t(i_t,X_b^{t-1},K)$。
 
-4. **联合筛选**
-   对 $(b,e)$ 计算 joint score / joint MDL，并保留 beam 内候选。
+1. **联合筛选**：对 $(b,e)$ 计算 joint score / joint MDL，并保留 beam 内候选。
 
-5. **结构保持式提升**
-   $$
-   T_b^t=A_b(X_b^{t,\mathrm{sel}})
-   $$
+1. **结构保持式提升**：$T_b^t=A_b(X_b^{t,\mathrm{sel}})$
 
-6. **语义重写**
-   $$
-   X_b^t \leftarrow N_b(X_b^t)
-   $$
+1. **语义重写**：$X_b^t \leftarrow N_b(X_b^t)$
 
-7. **选择动作**
-   先判定当前属于 probe 还是 exploit，再用 $J(a)$ 选动作。
+1. **选择动作**：先判定当前属于 probe 还是 exploit，再用 $J(a)$ 选动作。
 
-8. **执行动作并更新历史**
-   $$
-   h_{t+1}=h_t\cdot a_t \cdot o_{t+1}
-   $$
+1. **执行动作并更新历史**：$h_{t+1}=h_t\cdot a_t \cdot o_{t+1}$
 
-9. **终止判断**
-   若当前 level 到达终局，则退出 level loop。
+1. **终止判断**：若当前 level 到达终局，则退出 level loop。
 
 ---
 
@@ -538,8 +516,6 @@ v0.3 建议至少保留下面几类错误：
 * probe / exploit 双模态
 * 可逆性进入动作价值
 * 感知不确定性作为一等对象
-
-如果你要，我下一条可以继续把这份 v0.3 再压成一份更工程化的东西：**模块接口草案 + Python 伪代码 skeleton**。
 
 [1]: https://docs.arcprize.org/games?utm_source=chatgpt.com "Games - ARC-AGI-3 Docs"
 [2]: https://docs.arcprize.org/?utm_source=chatgpt.com "ARC-AGI-3 Quickstart - ARC-AGI-3 Docs"

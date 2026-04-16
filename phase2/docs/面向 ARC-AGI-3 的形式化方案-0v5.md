@@ -8,7 +8,7 @@
 
 ---
 
-你现有 v0.3 已经把 ARC-AGI-3 建成了四层结构：历史层、信息状态层、任务语境层、任务条件化结构层；v0.4 又在信息层和结构层显式引入了候选池、激活子集、缓存，以及 `LazySelect / Force` 的惰性调度机制。与此同时，ARC-AGI-3 官方本身就是 interactive、turn-based、强调 exploration、percept→plan→action、memory、goal acquisition 的 benchmark，这正适合用“随机通道持续复合更新”的语言来写。([GitHub][1])
+现有 v0.3 已经把 ARC-AGI-3 建成了四层结构：历史层、信息状态层、任务语境层、任务条件化结构层；v0.4 又在信息层和结构层显式引入了候选池、激活子集、缓存，以及 `LazySelect / Force` 的惰性调度机制。与此同时，ARC-AGI-3 官方本身就是 interactive、turn-based、强调 exploration、percept→plan→action、memory、goal acquisition 的 benchmark，这正适合用“随机通道持续复合更新”的语言来写。([GitHub][1])
 
 ## 0. 设计原则
 
@@ -266,11 +266,11 @@ $$
 $$
 a_t^{\text{probe-task}}
 =
-\arg\max_a
-\mathbb E\Big[
+\operatorname*{arg\,max}_a
+\mathbb{E}\left[
 H(\mu_t) - H(\mu_{t+1})
 \mid i_t, \mu_t, a
-\Big]
+\right]
 $$
 
 或者等价写成：
@@ -278,7 +278,7 @@ $$
 $$
 a_t^{\text{probe-task}}
 =
-\arg\max_a I(B; O_{t+1} \mid i_t, a)
+\operatorname*{arg\,max}_a I(B; O_{t+1} \mid i_t, a)
 $$
 
 其中 $B$ 是任务语境随机变量。
@@ -401,7 +401,7 @@ $$
 $$
 L_t
 =
-\arg\max_{Y,\ \mathrm{cost}(Y) \le B_t}
+\operatorname*{arg\,max}_{Y,\ \mathrm{cost}(Y) \le B_t}
 \sum_{x \in Y} \mathrm{Value}_t(x)
 $$
 
@@ -464,17 +464,13 @@ $$
 $$
 \mathrm{EIG}_t(b,e)
 =
-\mathbb E\bigl[
+\mathbb{E}\left[
 D(\mu_{t+1} \,\|\, \mu_t)
 \mid b,e
-\bigr]
+\right]
 $$
 
-$$
-\mathrm{Shrink}_t(b,e)
-=
-   ext{候选支持集收缩率}
-$$
+$\mathrm{Shrink}_t(b,e)$ 表示候选支持集收缩率。
 
 直观上：
 
@@ -587,12 +583,12 @@ $$
 $$
 a_t^{\text{exploit}}
 =
-\arg\max_{a\in\mathcal A(i_t)}
-\mathbb E\bigl[
+\operatorname*{arg\,max}_{a \in \mathcal A(i_t)}
+\mathbb{E}\left[
 V_{\text{solve}}(a)
 - \lambda_{\text{cost}} c(a)
 - \lambda_{\text{risk}} r(a)
-\bigr]
+\right]
 $$
 
 ### 10.3 probe 动作
@@ -600,14 +596,14 @@ $$
 $$
 a_t^{\text{probe}}
 =
-\arg\max_{a\in\mathcal A(i_t)}
-\Bigl(
+\operatorname*{arg\,max}_{a \in \mathcal A(i_t)}
+\left(
 \alpha\,I(B; O_{t+1} \mid i_t, a)
 + \beta\,I(E; O_{t+1} \mid i_t, a)
 + \gamma\,V_{\text{frontier}}(a)
 - \lambda_{\text{cost}} c(a)
 - \lambda_{\text{risk}} r(a)
-\Bigr)
+\right)
 $$
 
 其中：
@@ -636,56 +632,27 @@ $$
 
 ### 11.2 每一步 $t$ 的循环
 
-1. **粗压缩历史**
-   $$
-   i_t \leftarrow C_K^{\text{coarse}}(h_t)
-   $$
+1. **粗压缩历史**：$i_t \leftarrow C_K^{\text{coarse}}(h_t)$
 
-1. **惰性选择**
-   $$
-   (L_t^{obj}, L_t^{evt}, L_t^{str})
-   \leftarrow
-   \mathrm{LazySelect}_t(\Sigma_{g,\ell,t}, B_t)
-   $$
+1. **惰性选择**：$(L_t^{obj}, L_t^{evt}, L_t^{str}) \leftarrow \mathrm{LazySelect}_t(\Sigma_{g,\ell,t}, B_t)$
 
-1. **按需展开**
-   $$
-   (i_t^+, X_t^+) \leftarrow \mathrm{Force}_t(\cdots)
-   $$
+1. **按需展开**：$(i_t^+, X_t^+) \leftarrow \mathrm{Force}_t(\cdots)$
 
-1. **更新任务后验**
-   $$
-   \mu_t \leftarrow U_{\text{task}}(\mu_{t-1}, i_t^+, a_{t-1}, o_t)
-   $$
+1. **更新任务后验**：$\mu_t \leftarrow U_{\text{task}}(\mu_{t-1}, i_t^+, a_{t-1}, o_t)$
 
-1. **在高权重任务语境上做结构发现**
-   $$
-   \mathcal C_{b,t+1}^{str}
-   \leftarrow
-   \mathcal C_{b,t}^{str} \cup D_b^t(i_t^+, X_b^t, K_t)
-   $$
+1. **在高权重任务语境上做结构发现**：$\mathcal C_{b,t+1}^{str} \leftarrow \mathcal C_{b,t}^{str} \cup D_b^t(i_t^+, X_b^t, K_t)$
 
 1. **联合筛选**
    用 $\mathrm{Score}_t^{(0.5)}(b,e)$ 或 MDL + EIG 选 beam 内候选。
 
-1. **结构提升**
-   $$
-   T_b^t = A_b(X_b^{t,\mathrm{sel}})
-   $$
+1. **结构提升**：$T_b^t = A_b(X_b^{t,\mathrm{sel}})$
 
-1. **语义重写**
-   $$
-   X_b^t \leftarrow N_b(X_b^t)
-   $$
+1. **语义重写**：$X_b^t \leftarrow N_b(X_b^t)$
 
 1. **选择动作**
    先判定 probe/exploit，再按对应目标函数选动作。
 
-1. **执行动作并更新历史**
-
-   $$
-   h_{t+1} = h_t \cdot a_t \cdot o_{t+1}
-   $$
+1. **执行动作并更新历史**：$h_{t+1} = h_t \cdot a_t \cdot o_{t+1}$
 
 1. **终止判断**
 
