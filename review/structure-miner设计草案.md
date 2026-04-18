@@ -52,11 +52,11 @@
 
 所以你可以把现在“MDL 最短即可”的想法，升级成：
 
-[
+$$
 \text{Promote}(s) \propto
 \frac{\Delta \text{后验收缩} + \Delta \text{任务充分性} + \Delta \text{可分解性}}
 {\Delta \text{描述长度} + \Delta \text{搜索分支}}
-]
+$$
 
 这不是现成论文公式，而是我认为最适合你系统的范畴信息几何翻译。
 
@@ -143,9 +143,9 @@
 * 唯一满足某关系链的对象
 
 你不是直接长一个新 primitive，而是长一个：
-[
+$$
 \text{Selector}(o) := \phi(\text{attrs}(o), \text{relations}(o,\cdot))
-]
+$$
 
 第二类：**constraint schema**
 你现在已经有强约束/弱约束和失败归因。下一步不是多加 if，而是自动发现哪些约束总是成组出现，例如：
