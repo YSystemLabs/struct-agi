@@ -1,0 +1,344 @@
+{
+  "schema_version": "0.9",
+  "experiment_id": "multi_preorder_minimal_validation_v0_9",
+  "source_doc": "docs/draft/多预序对象发现最小验证实验.md",
+  "dataset": {
+    "name": "ARC-AGI-2",
+    "split": "training",
+    "source_dir": "phase1/datasets/raw/ARC-AGI-2/data/training",
+    "allow_evaluation_split": false
+  },
+  "selection_policy": {
+    "gate_name": "G_min",
+    "min_train_pairs": 3,
+    "use_observable_signatures_only": true,
+    "forbid_solver_success_as_gate": true,
+    "allowed_output_size_modes": [
+      "same_as_input",
+      "tight_bbox_of_single_output_component"
+    ],
+    "allowed_diff_labels": [
+      "identity",
+      "single_object_translate",
+      "single_object_recolor",
+      "single_object_delete",
+      "crop_selected_bbox"
+    ],
+    "excluded_patterns": [
+      "output_grid_expansion",
+      "repeat_tiling",
+      "multi_object_constructive_generation",
+      "multi_object_coordinated_transform",
+      "multi_step_composition_beyond_unary_template_pool"
+    ]
+  },
+  "primary_tasks": [
+    {
+      "task_id": "05f2a901",
+      "split": "training",
+      "train_pairs": 3,
+      "observed_label": "single_object_translate",
+      "template_family": "translate",
+      "output_size_mode": "same_as_input",
+      "evidence_flags": [
+        "all_train_pairs_same_input_output_size",
+        "single_nonzero_object_moved",
+        "non_target_pixels_unchanged",
+        "no_output_grid_expansion"
+      ]
+    },
+    {
+      "task_id": "25ff71a9",
+      "split": "training",
+      "train_pairs": 4,
+      "observed_label": "single_object_translate",
+      "template_family": "translate",
+      "output_size_mode": "same_as_input",
+      "evidence_flags": [
+        "all_train_pairs_same_input_output_size",
+        "single_nonzero_object_moved",
+        "non_target_pixels_unchanged",
+        "small_fixed_grid_regime"
+      ]
+    },
+    {
+      "task_id": "5168d44c",
+      "split": "training",
+      "train_pairs": 3,
+      "observed_label": "single_object_translate",
+      "template_family": "translate",
+      "output_size_mode": "same_as_input",
+      "evidence_flags": [
+        "all_train_pairs_same_input_output_size",
+        "single_nonzero_object_moved",
+        "no_output_grid_expansion",
+        "no_constructive_generation"
+      ]
+    },
+    {
+      "task_id": "a1570a43",
+      "split": "training",
+      "train_pairs": 4,
+      "observed_label": "single_object_translate",
+      "template_family": "translate",
+      "output_size_mode": "same_as_input",
+      "evidence_flags": [
+        "all_train_pairs_same_input_output_size",
+        "single_nonzero_object_moved",
+        "other_objects_stable",
+        "no_output_grid_expansion"
+      ]
+    },
+    {
+      "task_id": "dc433765",
+      "split": "training",
+      "train_pairs": 7,
+      "observed_label": "single_object_translate",
+      "template_family": "translate",
+      "output_size_mode": "same_as_input",
+      "evidence_flags": [
+        "all_train_pairs_same_input_output_size",
+        "single_nonzero_object_moved",
+        "multiple_grid_sizes_supported",
+        "no_output_grid_expansion"
+      ]
+    },
+    {
+      "task_id": "f3e62deb",
+      "split": "training",
+      "train_pairs": 6,
+      "observed_label": "single_object_translate",
+      "template_family": "translate",
+      "output_size_mode": "same_as_input",
+      "evidence_flags": [
+        "all_train_pairs_same_input_output_size",
+        "single_nonzero_object_moved",
+        "fixed_canvas_size",
+        "no_output_grid_expansion"
+      ]
+    },
+    {
+      "task_id": "63613498",
+      "split": "training",
+      "train_pairs": 3,
+      "observed_label": "single_object_recolor",
+      "template_family": "recolor",
+      "output_size_mode": "same_as_input",
+      "evidence_flags": [
+        "all_train_pairs_same_input_output_size",
+        "single_object_recolored",
+        "geometry_stable",
+        "non_target_pixels_unchanged"
+      ]
+    },
+    {
+      "task_id": "1cf80156",
+      "split": "training",
+      "train_pairs": 3,
+      "observed_label": "crop_selected_bbox",
+      "template_family": "crop_selected_bbox",
+      "output_size_mode": "tight_bbox_of_single_output_component",
+      "evidence_flags": [
+        "output_is_single_component",
+        "output_matches_single_input_component_bbox",
+        "no_output_grid_expansion",
+        "no_constructive_generation"
+      ]
+    },
+    {
+      "task_id": "2c0b0aff",
+      "split": "training",
+      "train_pairs": 4,
+      "observed_label": "crop_selected_bbox",
+      "template_family": "crop_selected_bbox",
+      "output_size_mode": "tight_bbox_of_single_output_component",
+      "evidence_flags": [
+        "output_is_single_component",
+        "output_matches_single_input_component_bbox",
+        "no_extra_constructive_events"
+      ]
+    },
+    {
+      "task_id": "2dc579da",
+      "split": "training",
+      "train_pairs": 3,
+      "observed_label": "crop_selected_bbox",
+      "template_family": "crop_selected_bbox",
+      "output_size_mode": "tight_bbox_of_single_output_component",
+      "evidence_flags": [
+        "output_is_single_component",
+        "output_matches_single_input_component_bbox",
+        "train_pair_count_satisfies_leave_one_protocol"
+      ]
+    },
+    {
+      "task_id": "358ba94e",
+      "split": "training",
+      "train_pairs": 4,
+      "observed_label": "crop_selected_bbox",
+      "template_family": "crop_selected_bbox",
+      "output_size_mode": "tight_bbox_of_single_output_component",
+      "evidence_flags": [
+        "output_is_single_component",
+        "output_bbox_size_stable",
+        "direct_crop_selected_bbox_explanation"
+      ]
+    },
+    {
+      "task_id": "72ca375d",
+      "split": "training",
+      "train_pairs": 3,
+      "observed_label": "crop_selected_bbox",
+      "template_family": "crop_selected_bbox",
+      "output_size_mode": "tight_bbox_of_single_output_component",
+      "evidence_flags": [
+        "output_is_single_component",
+        "output_matches_single_input_component_bbox",
+        "no_output_grid_expansion"
+      ]
+    },
+    {
+      "task_id": "8efcae92",
+      "split": "training",
+      "train_pairs": 3,
+      "observed_label": "crop_selected_bbox",
+      "template_family": "crop_selected_bbox",
+      "output_size_mode": "tight_bbox_of_single_output_component",
+      "evidence_flags": [
+        "output_is_single_component",
+        "single_event_structure",
+        "direct_bbox_crop_explanation"
+      ]
+    },
+    {
+      "task_id": "be94b721",
+      "split": "training",
+      "train_pairs": 4,
+      "observed_label": "crop_selected_bbox",
+      "template_family": "crop_selected_bbox",
+      "output_size_mode": "tight_bbox_of_single_output_component",
+      "evidence_flags": [
+        "output_is_single_component",
+        "template_pool_can_express",
+        "no_multi_object_construction"
+      ]
+    },
+    {
+      "task_id": "ce602527",
+      "split": "training",
+      "train_pairs": 4,
+      "observed_label": "crop_selected_bbox",
+      "template_family": "crop_selected_bbox",
+      "output_size_mode": "tight_bbox_of_single_output_component",
+      "evidence_flags": [
+        "output_is_single_component",
+        "single_object_bbox_crop",
+        "no_multi_object_coordination"
+      ]
+    },
+    {
+      "task_id": "e50d258f",
+      "split": "training",
+      "train_pairs": 3,
+      "observed_label": "crop_selected_bbox",
+      "template_family": "crop_selected_bbox",
+      "output_size_mode": "tight_bbox_of_single_output_component",
+      "evidence_flags": [
+        "output_is_single_component",
+        "direct_crop_selected_bbox_explanation",
+        "protocol_stable"
+      ]
+    }
+  ],
+  "reserve_tasks": [
+    {
+      "task_id": "1f85a75f",
+      "split": "training",
+      "train_pairs": 2,
+      "observed_label": "crop_selected_bbox",
+      "reserve_reason": "too_few_train_pairs_for_stable_leave_one_protocol"
+    },
+    {
+      "task_id": "23b5c85d",
+      "split": "training",
+      "train_pairs": 5,
+      "observed_label": "crop_selected_bbox",
+      "reserve_reason": "redundant_with_primary_crop_family"
+    },
+    {
+      "task_id": "642d658d",
+      "split": "training",
+      "train_pairs": 3,
+      "observed_label": "crop_selected_bbox",
+      "reserve_reason": "degenerate_1x1_crop_case"
+    },
+    {
+      "task_id": "7bb29440",
+      "split": "training",
+      "train_pairs": 5,
+      "observed_label": "crop_selected_bbox",
+      "reserve_reason": "reserve_for_future_expansion_batch"
+    },
+    {
+      "task_id": "9ba4a9aa",
+      "split": "training",
+      "train_pairs": 3,
+      "observed_label": "crop_selected_bbox",
+      "reserve_reason": "redundant_with_primary_crop_family"
+    },
+    {
+      "task_id": "c909285e",
+      "split": "training",
+      "train_pairs": 3,
+      "observed_label": "crop_selected_bbox",
+      "reserve_reason": "redundant_with_primary_crop_family"
+    },
+    {
+      "task_id": "cd3c21df",
+      "split": "training",
+      "train_pairs": 3,
+      "observed_label": "crop_selected_bbox",
+      "reserve_reason": "redundant_with_primary_crop_family"
+    },
+    {
+      "task_id": "d9fac9be",
+      "split": "training",
+      "train_pairs": 4,
+      "observed_label": "crop_selected_bbox",
+      "reserve_reason": "reserve_for_future_expansion_batch"
+    },
+    {
+      "task_id": "da6e95e5",
+      "split": "training",
+      "train_pairs": 3,
+      "observed_label": "crop_selected_bbox",
+      "reserve_reason": "reserve_for_future_expansion_batch"
+    }
+  ],
+  "explicit_exclusions": [
+    {
+      "task_id": "695367ec",
+      "split": "training",
+      "reason": "output_grid_expansion",
+      "details": "output grows from 2x2, 3x3, 4x4 to 15x15"
+    },
+    {
+      "task_id": "445eab21",
+      "split": "training",
+      "reason": "not_expressible_by_current_crop_selected_bbox_semantics",
+      "details": "output is a small single-object grid but not equal to any input object tight bbox"
+    },
+    {
+      "task_id": "1190e5a7",
+      "split": "training",
+      "reason": "single_object_appearance_without_direct_bbox_crop_explanation",
+      "details": "output looks like a single object but is not directly the tight bbox of any input object"
+    }
+  ],
+  "usage_constraints": [
+    "aggregate_main_results_only_on_primary_tasks",
+    "do_not_promote_reserve_tasks_within_same_protocol_version",
+    "do_not_rescue_explicit_exclusions_by_expanding_template_pool_within_same_protocol_version",
+    "if_primary_task_evidence_is_found_incorrect_then_revise_protocol_version_before_reporting_results"
+  ]
+}

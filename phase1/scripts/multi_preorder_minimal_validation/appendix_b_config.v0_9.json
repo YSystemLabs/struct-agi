@@ -1,0 +1,282 @@
+{
+  "schema_version": "0.9",
+  "experiment_id": "multi_preorder_minimal_validation_v0_9",
+  "source_doc": "docs/draft/多预序对象发现最小验证实验.md",
+  "comparison_methods": [
+    "multi_preorder",
+    "cc4",
+    "cc8",
+    "bbox",
+    "raw_local_feature_clustering"
+  ],
+  "protocol": {
+    "dataset_split": "training",
+    "fold_strategy": "leave_one_train_pair_out",
+    "top_k": 8,
+    "tau_eq": 0.6,
+    "baseline_average": "simple_mean"
+  },
+  "observable_task_gate": {
+    "name": "G_min",
+    "use_observable_signatures_only": true,
+    "forbid_solver_success_as_gate": true,
+    "min_train_pairs": 3,
+    "allowed_output_size_modes": [
+      "same_as_input",
+      "tight_bbox_of_single_output_component"
+    ],
+    "allowed_diff_labels": [
+      "identity",
+      "single_object_translate",
+      "single_object_recolor",
+      "single_object_delete",
+      "crop_selected_bbox"
+    ],
+    "excluded_patterns": [
+      "output_grid_expansion",
+      "repeat_tiling",
+      "multi_object_constructive_generation",
+      "multi_object_coordinated_transform",
+      "multi_step_composition_beyond_unary_template_pool"
+    ]
+  },
+  "preorder_whitelist": [
+    "equivalence",
+    "natural",
+    "reverse_natural",
+    "subset",
+    "color_role_equivalence"
+  ],
+  "global_constants": {
+    "neighborhood_radii": [1, 2],
+    "background_modes": [
+      "top1",
+      "top2",
+      "no_fixed_background"
+    ],
+    "theta_candidates": [0.55, 0.7, 0.85]
+  },
+  "features": [
+    {
+      "id": "same8",
+      "name_zh": "八邻域同色掩码",
+      "symbol": "phi_same8",
+      "value_domain": "bitmask8",
+      "preorder_type": "subset",
+      "output_mode": "subset",
+      "bucketization": null
+    },
+    {
+      "id": "bg8",
+      "name_zh": "八邻域背景掩码",
+      "symbol": "phi_bg8",
+      "value_domain": "bitmask8",
+      "preorder_type": "subset",
+      "output_mode": "subset",
+      "bucketization": null
+    },
+    {
+      "id": "run_up",
+      "name_zh": "向上连续长度",
+      "symbol": "phi_run_up",
+      "value_domain": "non_negative_integer",
+      "preorder_type": "natural",
+      "output_mode": "rank_bucket",
+      "bucketization": "rank_buckets_0_1_2_ge3"
+    },
+    {
+      "id": "run_down",
+      "name_zh": "向下连续长度",
+      "symbol": "phi_run_down",
+      "value_domain": "non_negative_integer",
+      "preorder_type": "natural",
+      "output_mode": "rank_bucket",
+      "bucketization": "rank_buckets_0_1_2_ge3"
+    },
+    {
+      "id": "run_left",
+      "name_zh": "向左连续长度",
+      "symbol": "phi_run_left",
+      "value_domain": "non_negative_integer",
+      "preorder_type": "natural",
+      "output_mode": "rank_bucket",
+      "bucketization": "rank_buckets_0_1_2_ge3"
+    },
+    {
+      "id": "run_right",
+      "name_zh": "向右连续长度",
+      "symbol": "phi_run_right",
+      "value_domain": "non_negative_integer",
+      "preorder_type": "natural",
+      "output_mode": "rank_bucket",
+      "bucketization": "rank_buckets_0_1_2_ge3"
+    },
+    {
+      "id": "trans",
+      "name_zh": "局部过渡数",
+      "symbol": "phi_trans",
+      "value_domain": "non_negative_integer",
+      "preorder_type": "natural",
+      "output_mode": "rank_bucket",
+      "bucketization": "rank_buckets_0_1_2_ge3"
+    },
+    {
+      "id": "bdist",
+      "name_zh": "边界距离",
+      "symbol": "phi_bdist",
+      "value_domain": "non_negative_integer",
+      "preorder_type": "reverse_natural",
+      "output_mode": "rank_bucket",
+      "bucketization": "rank_buckets_0_1_2_ge3"
+    }
+  ],
+  "rank_buckets": [
+    { "label": "0", "min": 0, "max": 0 },
+    { "label": "1", "min": 1, "max": 1 },
+    { "label": "2", "min": 2, "max": 2 },
+    { "label": "ge3", "min": 3, "max": null }
+  ],
+  "weight_grid": {
+    "W_u": [0.125, 0.125, 0.125, 0.125, 0.125, 0.125, 0.125, 0.125],
+    "W_m": [0.2, 0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
+    "W_r": [0.1, 0.1, 0.15, 0.15, 0.15, 0.15, 0.1, 0.1],
+    "W_g": [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.2, 0.2]
+  },
+  "whitelists": {
+    "selectors": [
+      "largest_object",
+      "smallest_object",
+      "center_object",
+      "boundary_touching_object",
+      "unique_role_color_object",
+      "unique_relation_defined_object"
+    ],
+    "templates": [
+      "identity",
+      "translate",
+      "recolor",
+      "delete",
+      "crop_selected_bbox"
+    ],
+    "renders": [
+      "render_all",
+      "render_selected",
+      "crop_selected_bbox"
+    ]
+  },
+  "signature": {
+    "fields": [
+      "tmpl",
+      "sel",
+      "render",
+      "theta_norm",
+      "h_norm"
+    ],
+    "theta_norm": {
+      "identity": {
+        "type": "empty_tuple"
+      },
+      "delete": {
+        "type": "empty_tuple"
+      },
+      "crop_selected_bbox": {
+        "type": "empty_tuple"
+      },
+      "translate": {
+        "type": "integer_pair_dx_dy",
+        "translation_invariant_to_global_origin": true
+      },
+      "recolor": {
+        "type": "source_role_target_role_pair",
+        "allowed_roles": [
+          "background",
+          "dominant_non_background",
+          "second_non_background",
+          "unique_non_background",
+          "largest_object_color"
+        ]
+      }
+    },
+    "h_norm_fields": [
+      "bg_mode",
+      "r",
+      "feature_subset_id",
+      "preorder_profile_id",
+      "theta",
+      "weight_id",
+      "obj_count_bucket",
+      "edge_count_bucket"
+    ],
+    "bucketization": {
+      "obj_count_bucket": [
+        { "label": "1", "min": 1, "max": 1 },
+        { "label": "2", "min": 2, "max": 2 },
+        { "label": "3_4", "min": 3, "max": 4 },
+        { "label": "ge5", "min": 5, "max": null }
+      ],
+      "edge_count_bucket": [
+        { "label": "0", "min": 0, "max": 0 },
+        { "label": "1_2", "min": 1, "max": 2 },
+        { "label": "3_5", "min": 3, "max": 5 },
+        { "label": "ge6", "min": 6, "max": null }
+      ]
+    }
+  },
+  "perturbations": [
+    {
+      "id": "P_color",
+      "type": "color_permutation",
+      "rule": "cycle_non_background_colors_in_ascending_order",
+      "preserve_background_if_fixed": true
+    },
+    {
+      "id": "P_shift",
+      "type": "translation_with_fallback_padding",
+      "preferred_translation": [1, 1],
+      "fallback": "pad1_then_shift",
+      "pad_color_mode": "background"
+    }
+  ],
+  "search_bounds": {
+    "feature_count_fixed": 8,
+    "input_output_hypothesis_coupling": "H_coupled_only",
+    "relation_whitelist": [
+      "adjacency",
+      "containment",
+      "alignment",
+      "repeat"
+    ],
+    "template_arity_max": 1,
+    "allow_single_existing_anchor_read": true,
+    "forbid_multi_step_object_composition": true,
+    "candidate_program_cap_per_fold": 8
+  },
+  "evaluation": {
+    "primary_endpoints": [
+      "top1_exact_match_tasks",
+      "mean_pixel_accuracy"
+    ],
+    "secondary_endpoints": [
+      "train_score_compression_advantage",
+      "robust_equivalence_rate"
+    ],
+    "paired_baseline_metrics": {
+      "tie_score": 0.5,
+      "win_rate_metric": "paired_exact_match_win_rate",
+      "win_rate_min_baseline_fraction_with_ge_0_5": 0.5,
+      "mean_accuracy_gain_metric": "paired_mean_pixel_accuracy_gain",
+      "mean_accuracy_gain_must_be_strictly_positive": true
+    },
+    "secondary_pass_rule": {
+      "at_least_one_strictly_better_than_baseline_mean": true,
+      "other_not_worse_than_baseline_mean": true
+    }
+  },
+  "implementation_constraints": [
+    "do_not_add_features",
+    "do_not_add_preorder_types",
+    "do_not_make_W_or_Theta_or_tau_eq_continuously_learnable",
+    "do_not_customize_perturbations_per_task",
+    "do_not_change_sigma_field_definitions_per_task"
+  ]
+}
