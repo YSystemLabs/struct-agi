@@ -143,6 +143,7 @@ $$
 * 唯一满足某关系链的对象
 
 你不是直接长一个新 primitive，而是长一个：
+
 $$
 \text{Selector}(o) := \phi(\text{attrs}(o), \text{relations}(o,\cdot))
 $$

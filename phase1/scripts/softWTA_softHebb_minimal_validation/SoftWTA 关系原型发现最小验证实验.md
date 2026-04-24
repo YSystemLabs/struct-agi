@@ -246,7 +246,7 @@ K = 16
 对每个局部关系向量 $z_u$，计算：
 
 $$
-s_k(u)=\operatorname{sim}(z_u,p_k)
+s_k(u)=\mathrm{sim}(z_u,p_k)
 $$
 
 $$
@@ -259,7 +259,7 @@ $$
 
 * $r_k(u)$ 是 prototype $k$ 对位置 $u$ 的 soft responsibility；
 * $\tau$ 是温度；
-* $\operatorname{sim}$ 可以先用 cosine similarity 或 negative squared distance。
+* $\mathrm{sim}$ 可以先用 cosine similarity 或 negative squared distance。
 
 建议温度网格：
 
@@ -272,7 +272,7 @@ $$
 对每个 prototype：
 
 $$
-p_k \leftarrow \operatorname{normalize}
+p_k \leftarrow \mathrm{normalize}
 \left(
 p_k + \eta \sum_u r_k(u)(z_u-p_k)
 \right)
@@ -293,7 +293,7 @@ $$
 对非 winner prototype 加入弱 repulsion：
 
 $$
-p_k \leftarrow \operatorname{normalize}
+p_k \leftarrow \mathrm{normalize}
 \left(
 p_k - \eta \gamma r_k(u)(z_u-p_k)
 \right),
@@ -305,11 +305,10 @@ $$
 $$
 L_{\text{div}}
 =
-
 \sum_{i<j}
-\operatorname{sim}(p_i,p_j)^2
+\mathrm{sim}(p_i,p_j)^2
 \cdot
-\operatorname{overlap}(r_i,r_j)
+\mathrm{overlap}(r_i,r_j)
 $$
 
 主实验建议先用 penalty 版本，比较稳定。
@@ -501,12 +500,12 @@ $$
 候选程序统一写成：
 
 $$
-\pi = \operatorname{select}(S); T; R
+\pi = \mathrm{select}(S); T; R
 $$
 
 其中：
 
-* $\operatorname{select}(S)$：固定选择器白名单；
+* $\mathrm{select}(S)$：固定选择器白名单；
 * $T\in\mathcal A_{\min}$：固定一元模板变换；
 * $R$：固定渲染方式。
 
@@ -627,9 +626,9 @@ L_{\text{redun}}
 =
 \frac{1}{K(K-1)}
 \sum_{i\ne j}
-\operatorname{sim}(p_i,p_j)^2
+\mathrm{sim}(p_i,p_j)^2
 \cdot
-\operatorname{overlap}(r_i,r_j)
+\mathrm{overlap}(r_i,r_j)
 $$
 
 这个项只用于诊断或辅评分。主结果应同时报告有无该项。
@@ -700,9 +699,9 @@ $$
 \sigma(e)
 =
 (
-\operatorname{tmpl}(\pi),
-\operatorname{sel}(\pi),
-\operatorname{render}(\pi),
+\mathrm{tmpl}(\pi),
+\mathrm{sel}(\pi),
+\mathrm{render}(\pi),
 \widetilde{\theta}(\pi),
 \widetilde{h},
 \widetilde{P}
@@ -733,9 +732,8 @@ $$
 定义：
 
 $$
-\operatorname{Eq}_K
+\mathrm{Eq}_K
 =
-
 \frac{
 |{\sigma(e)\mid e\in E_K}
 \cap
@@ -792,9 +790,7 @@ no_regression_count
 $$
 U
 =
-
-\exp
-\left(
+\exp\left(
 -\sum_k \bar r_k \log \bar r_k
 \right)
 $$
@@ -806,12 +802,11 @@ $$
 $$
 D_{\text{redun}}
 =
-
 \frac{1}{K(K-1)}
 \sum_{i\ne j}
-\operatorname{sim}(p_i,p_j)^2
+\mathrm{sim}(p_i,p_j)^2
 \cdot
-\operatorname{overlap}(r_i,r_j)
+\mathrm{overlap}(r_i,r_j)
 $$
 
 #### seed stability
