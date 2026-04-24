@@ -486,15 +486,7 @@ $$
 下游模板池继承原实验，不允许因 SoftWTA 新增 primitive。
 
 $$
-\mathcal A_{\min}
-=
-\left\{
-\text{identity},\,
-\text{translate},\,
-\text{recolor},\,
-\text{delete},\,
-\text{crop\_selected\_bbox}
-\right\}
+\mathcal A_{\min} = \{\,\mathrm{identity},\ \mathrm{translate},\ \mathrm{recolor},\ \mathrm{delete},\ \mathrm{crop\_selected\_bbox}\,\}
 $$
 
 候选程序统一写成：
