@@ -294,7 +294,7 @@ $$
 或使用更稳定的 redundancy penalty：
 
 $$
-L_{\mathrm{div}} = \sum_{i<j} \mathrm{sim}(p_i, p_j)^2 \cdot \mathrm{overlap}(r_i, r_j)
+L_{\mathrm{div}} = \sum_{i \lt j} \mathrm{sim}(p_i, p_j)^2 \cdot \mathrm{overlap}(r_i, r_j)
 $$
 
 主实验建议先用 penalty 版本，比较稳定。
@@ -563,7 +563,7 @@ color role normalization mode
 
 ### 11.4 prototype complexity
 
-$L_{\mathrm{proto}} = \log K + N_{\mathrm{act}} + \ell_\tau$，其中 $N_{\mathrm{act}}$ 是活跃 prototype 数（`active_prototypes`），$\ell_\tau$ 是温度参数离散化后的码长（`quantized_temperature_code_length`）。
+$L_{\mathrm{proto}} = \log K + N_{\mathrm{act}} + \ell_\tau$，其中 $N_{\mathrm{act}}$ 是活跃 prototype 数（`active_prototypes`）， $\ell_\tau$ 是温度参数离散化后的码长（`quantized_temperature_code_length`）。
 
 ### 11.5 redundancy penalty
 
