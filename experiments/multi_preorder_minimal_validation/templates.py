@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass
 from itertools import product
 from statistics import mean
@@ -55,6 +56,54 @@ Y_PARAMS: tuple[int | str, ...] = (
     "to_nearest_object_dy",
 )
 
+DEFAULT_TRAIN_OBJECTIVE_PROXY: dict[str, Any] = {
+    "residual": {
+        "exact_miss_weight": 2.0,
+        "pixel_miss_weight": 1.0,
+    },
+    "lambda_program": 0.05,
+    "lambda_hypothesis": 0.05,
+    "program_complexity": {
+        "selector_base": 0.5,
+        "template_weights": {
+            "identity": 1.0,
+            "delete": 1.0,
+            "crop_selected_bbox": 1.0,
+            "recolor": 1.5,
+            "translate": 1.5,
+        },
+        "render_weights": {
+            "render_all": 0.5,
+            "render_selected": 0.75,
+            "crop_selected_bbox": 1.0,
+        },
+        "literal_param_cost": 0.25,
+        "symbolic_param_cost": 0.5,
+    },
+    "hypothesis_complexity": {
+        "background_mode_weights": {
+            "top1": 0.0,
+            "top2": 0.25,
+            "no_fixed_background": 0.5,
+        },
+        "radius_step_cost": 0.25,
+        "theta_threshold_cost": 0.5,
+        "feature_subset_costs": {
+            "features:full8": 0.5,
+            "features:raw_full8": 0.5,
+        },
+        "preorder_profile_costs": {
+            "preorders:config_default": 0.75,
+        },
+        "weight_id_costs": {
+            "W_u": 0.25,
+            "W_m": 0.25,
+            "W_r": 0.25,
+            "W_g": 0.25,
+        },
+    },
+}
+
 
 @dataclass(frozen=True)
 class CandidateKey:
@@ -76,6 +125,10 @@ class CandidateExplanation:
     sigma: tuple[Any, ...]
     train_exact_rate: float
     train_accuracy: float
+    train_residual_loss: float
+    train_program_complexity: float
+    train_hypothesis_complexity: float
+    train_j_score: float
 
     @property
     def debug_name(self) -> str:
@@ -91,6 +144,7 @@ def search_method_candidates(
     config: AppendixBConfig,
 ) -> tuple[list[CandidateExplanation], int]:
     all_candidates: list[CandidateExplanation] = []
+    objective_proxy = resolve_train_objective_proxy(config)
     for hypothesis in hypotheses:
         contexts = [
             build_pair_context(index, pair["input"], pair["output"], hypothesis, config)
@@ -103,6 +157,7 @@ def search_method_candidates(
         if not union_keys:
             continue
         h_norm = build_h_norm(contexts, hypothesis, config)
+        hypothesis_complexity = _hypothesis_complexity(hypothesis, objective_proxy)
         for key in sorted(union_keys, key=_candidate_key_sort_key):
             exact_scores: list[float] = []
             accuracies: list[float] = []
@@ -110,6 +165,16 @@ def search_method_candidates(
                 _, exact_flag, accuracy = evaluate_candidate_key(context, key)
                 exact_scores.append(1.0 if exact_flag else 0.0)
                 accuracies.append(accuracy)
+            train_exact_rate = mean(exact_scores)
+            train_accuracy = mean(accuracies)
+            train_residual_loss = _residual_loss(train_exact_rate, train_accuracy, objective_proxy)
+            train_program_complexity = _program_complexity(key, objective_proxy)
+            train_j_score = _train_j_score(
+                train_residual_loss,
+                train_program_complexity,
+                hypothesis_complexity,
+                objective_proxy,
+            )
             candidate = CandidateExplanation(
                 hypothesis=hypothesis,
                 selector=key.selector,
@@ -119,8 +184,12 @@ def search_method_candidates(
                 theta_norm=normalize_theta(key, contexts[0]),
                 h_norm=h_norm,
                 sigma=(key.template, key.selector, key.render, normalize_theta(key, contexts[0]), h_norm),
-                train_exact_rate=mean(exact_scores),
-                train_accuracy=mean(accuracies),
+                train_exact_rate=train_exact_rate,
+                train_accuracy=train_accuracy,
+                train_residual_loss=train_residual_loss,
+                train_program_complexity=train_program_complexity,
+                train_hypothesis_complexity=hypothesis_complexity,
+                train_j_score=train_j_score,
             )
             if candidate.train_accuracy > 0.0:
                 all_candidates.append(candidate)
@@ -128,6 +197,31 @@ def search_method_candidates(
     ranked = sorted(deduped, key=lambda candidate: _candidate_rank_key(candidate, config))
     budget = int(config.search_bounds["candidate_program_cap_per_fold"])
     return ranked[:budget], len(all_candidates)
+
+
+def resolve_train_objective_proxy(config: AppendixBConfig) -> dict[str, Any]:
+    proxy = deepcopy(DEFAULT_TRAIN_OBJECTIVE_PROXY)
+    _deep_update(proxy, config.evaluation.get("train_objective_proxy", {}))
+    return proxy
+
+
+def build_failed_train_objective(config: AppendixBConfig) -> dict[str, float]:
+    objective_proxy = resolve_train_objective_proxy(config)
+    train_residual_loss = _residual_loss(0.0, 0.0, objective_proxy)
+    train_program_complexity = 0.0
+    train_hypothesis_complexity = 0.0
+    train_j_score = _train_j_score(
+        train_residual_loss,
+        train_program_complexity,
+        train_hypothesis_complexity,
+        objective_proxy,
+    )
+    return {
+        "train_residual_loss": train_residual_loss,
+        "train_program_complexity": train_program_complexity,
+        "train_hypothesis_complexity": train_hypothesis_complexity,
+        "train_j_score": train_j_score,
+    }
 
 
 def enumerate_exact_pair_candidates(context: PairContext, config: AppendixBConfig) -> set[CandidateKey]:
@@ -362,9 +456,10 @@ def _dedupe_by_sigma(candidates: list[CandidateExplanation]) -> list[CandidateEx
     best_by_sigma: dict[tuple[Any, ...], CandidateExplanation] = {}
     for candidate in candidates:
         existing = best_by_sigma.get(candidate.sigma)
-        if existing is None or (candidate.train_exact_rate, candidate.train_accuracy, candidate.debug_name) > (
-            existing.train_exact_rate,
-            existing.train_accuracy,
+        if existing is None or (candidate.train_j_score, -candidate.train_exact_rate, -candidate.train_accuracy, candidate.debug_name) < (
+            existing.train_j_score,
+            -existing.train_exact_rate,
+            -existing.train_accuracy,
             existing.debug_name,
         ):
             best_by_sigma[candidate.sigma] = candidate
@@ -381,6 +476,7 @@ def _candidate_rank_key(candidate: CandidateExplanation, config: AppendixBConfig
     templates = list(config.whitelists["templates"])
     renders = list(config.whitelists["renders"])
     return (
+        candidate.train_j_score,
         -candidate.train_exact_rate,
         -candidate.train_accuracy,
         templates.index(candidate.template) if candidate.template in templates else 999,
@@ -415,3 +511,65 @@ def _recolor_param_rank(candidate: CandidateExplanation) -> tuple[Any, ...]:
     target_rank = target_order.index(target_role) if target_role in target_order else len(target_order)
     source_rank = source_order.index(source_role) if source_role in source_order else len(source_order)
     return (target_rank, source_rank)
+
+
+def _deep_update(target: dict[str, Any], overrides: dict[str, Any]) -> None:
+    for key, value in overrides.items():
+        if isinstance(value, dict) and isinstance(target.get(key), dict):
+            _deep_update(target[key], value)
+            continue
+        target[key] = value
+
+
+def _residual_loss(train_exact_rate: float, train_accuracy: float, objective_proxy: dict[str, Any]) -> float:
+    residual_config = objective_proxy["residual"]
+    exact_miss_weight = float(residual_config["exact_miss_weight"])
+    pixel_miss_weight = float(residual_config["pixel_miss_weight"])
+    return exact_miss_weight * (1.0 - train_exact_rate) + pixel_miss_weight * (1.0 - train_accuracy)
+
+
+def _program_complexity(candidate_key: CandidateKey, objective_proxy: dict[str, Any]) -> float:
+    program_config = objective_proxy["program_complexity"]
+    template_weights = program_config["template_weights"]
+    render_weights = program_config["render_weights"]
+    literal_param_cost = float(program_config["literal_param_cost"])
+    symbolic_param_cost = float(program_config["symbolic_param_cost"])
+
+    complexity = float(program_config["selector_base"])
+    complexity += float(template_weights.get(candidate_key.template, 1.0))
+    complexity += float(render_weights.get(candidate_key.render, 0.5))
+    for _, value in candidate_key.params:
+        complexity += literal_param_cost if isinstance(value, int) else symbolic_param_cost
+    return complexity
+
+
+def _hypothesis_complexity(hypothesis: MethodHypothesis, objective_proxy: dict[str, Any]) -> float:
+    hypothesis_config = objective_proxy["hypothesis_complexity"]
+    background_mode_weights = hypothesis_config["background_mode_weights"]
+    feature_subset_costs = hypothesis_config["feature_subset_costs"]
+    preorder_profile_costs = hypothesis_config["preorder_profile_costs"]
+    weight_id_costs = hypothesis_config["weight_id_costs"]
+    theta_threshold_cost = float(hypothesis_config["theta_threshold_cost"])
+    radius_step_cost = float(hypothesis_config["radius_step_cost"])
+
+    complexity = float(background_mode_weights.get(hypothesis.bg_mode, 0.0))
+    complexity += max(hypothesis.r - 1, 0) * radius_step_cost
+    complexity += float(feature_subset_costs.get(hypothesis.feature_subset_id, 0.0))
+    complexity += float(preorder_profile_costs.get(hypothesis.preorder_profile_id, 0.0))
+    complexity += float(weight_id_costs.get(hypothesis.weight_id, 0.0))
+    if hypothesis.theta is not None and hypothesis.theta < 1.0:
+        complexity += theta_threshold_cost
+    return complexity
+
+
+def _train_j_score(
+    train_residual_loss: float,
+    train_program_complexity: float,
+    train_hypothesis_complexity: float,
+    objective_proxy: dict[str, Any],
+) -> float:
+    return (
+        train_residual_loss
+        + float(objective_proxy["lambda_program"]) * train_program_complexity
+        + float(objective_proxy["lambda_hypothesis"]) * train_hypothesis_complexity
+    )

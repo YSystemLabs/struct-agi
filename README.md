@@ -22,11 +22,22 @@
 
 **当前进展**：Step 1 已作为最小闭环基线冻结；Step 2 已完成到“冻结边界 + 明确移交”的验收口径。当前稳定结果为：Step 2a 在 Copy1-6 与 Center1-6 上达到 8/12、按“有条件通过”接受；Step 2b 在新增四个概念组上达到 MoveToBoundary 3/6、ExtendToBoundary 2/6、ExtractObjects 2/6，并将 CleanUp 冻结为未收口能力缺口。当前工程状态已进入 Step 3A 准备阶段，即先处理 Step 2 显式移交的残差能力，再进入正式增长实验。
 
+**理论与实验包说明**：Phase 1 的 Step 1/2 工程工作先形成了当前单任务基线；根目录下的 [可组合信息论](docs/draft/可组合信息论.md) 是对这些工程实践的后续理论综合。当前已整理成可复现实验包的是 [experiments/multi_preorder_minimal_validation](experiments/multi_preorder_minimal_validation/多预序对象发现最小验证实验.md)，但它目前只应视为理论启发下的探索性最小验证包，用于筛选多预序路线是否值得继续保留，而不应视为主理论的正式 Phase A 实验包。并行的自动对象发现探索还包括 [phase1/scripts/softWTA_softHebb_minimal_validation/SoftWTA 关系原型发现最小验证实验.md](phase1/scripts/softWTA_softHebb_minimal_validation/SoftWTA 关系原型发现最小验证实验.md)；[phase1/docs/structure-miner](phase1/docs/structure-miner/README.md) 仅保留旧实验路线的 brainstorming 补充，不作为正式理论或正式实验指导。
+
 ## 项目结构
 
 ```text
 structuralist-agi/
 ├── README.md                     # 本文件
+├── docs/
+│   └── draft/
+│       └── 可组合信息论.md        # 后续形成的理论纲领草案
+├── experiments/
+│   └── multi_preorder_minimal_validation/
+│       ├── 多预序对象发现最小验证实验.md
+│       ├── appendix_a_tasks.v0_9.json
+│       ├── appendix_b_config.v0_9.json
+│       └── validation_report.v0_9.json
 ├── 研究宣言-0v2.md                # 研究方向与基本立场
 ├── 公开数据集选择方案-0v1.md       # 数据集选型记录
 ├── 项目评估-claude.md             # 外部评估
@@ -49,6 +60,9 @@ structuralist-agi/
 | 文档 | 说明 |
 | --- | --- |
 | [研究宣言](研究宣言-0v2.md) | 为什么需要结构主义路径，范畴论视角的动机 |
+| [可组合信息论](docs/draft/可组合信息论.md) | 对既有工程实践的理论综合，以及后续 Phase A-D 的正式纲领 |
+| [多预序对象发现最小验证实验](experiments/multi_preorder_minimal_validation/多预序对象发现最小验证实验.md) | 理论启发的探索性最小验证包，用于判断多预序路线是否值得继续保留 |
+| [SoftWTA 关系原型发现最小验证实验](phase1/scripts/softWTA_softHebb_minimal_validation/SoftWTA 关系原型发现最小验证实验.md) | 并行探索中的另一条自动对象发现路线草案 |
 | [Phase 1 研究计划](phase1/docs/第一阶段研究计划-0v1.md) | 研究边界、假设、方法框架、评测指标、成功标准 |
 | [Phase 1 算法架构](phase1/docs/第一阶段算法架构-0v4.md) | 五层架构、DSL、MDL 筛选、渐进增长、知识改写 |
 | [Step 1 实验与验收报告](phase1/docs/step1/Step1实验与验收报告-0v1.md) | Step 1 的实验设置、结果摘要、验收结论与阶段性判断 |

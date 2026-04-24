@@ -4,6 +4,8 @@
 
 当前状态：Step 1 已冻结，Step 2 已实施到 Step 2b 验收阶段，主文档当前处于“Step 2 已验收冻结，Step 3 准备阶段”。当前稳定结果为：Step 2a 在 Copy1-6 与 Center1-6 上达到 8/12，按“有条件通过”接受；Step 2b 在新增四个概念组上达到 MoveToBoundary 3/6、ExtendToBoundary 2/6、ExtractObjects 2/6，并将 CleanUp 冻结为未收口能力缺口。下一步不是直接启动增长，而是进入 Step 3A，先处理 Step 2 显式移交的残差能力。
 
+说明：Phase 1 的 Step 1/2 代码与实验先形成了当前工程基线；根目录 [docs/draft/可组合信息论.md](../docs/draft/可组合信息论.md) 是后续对这些工程实践的理论综合。当前根目录 [experiments/multi_preorder_minimal_validation](../experiments/multi_preorder_minimal_validation/多预序对象发现最小验证实验.md) 只应视为理论启发的探索性最小验证包，用于筛选多预序路线是否值得继续保留，而不应视为主理论的正式 Phase A 实验包；并行候选路线还包括 [scripts/softWTA_softHebb_minimal_validation/SoftWTA 关系原型发现最小验证实验.md](scripts/softWTA_softHebb_minimal_validation/SoftWTA 关系原型发现最小验证实验.md)。[docs/structure-miner/](docs/structure-miner/README.md) 仅保留旧实验路线的 brainstorming 补充，不作为正式理论或正式实验指导。
+
 ## 目录结构
 
 ```text
@@ -17,6 +19,8 @@ phase1/
 ├── docs/
 │   ├── 第一阶段研究计划-0v1.md
 │   ├── 第一阶段算法架构-0v4.md
+│   ├── structure-miner/
+│   │   └── README.md
 │   ├── step1/
 │   │   ├── Step1实现设计-0v1.md
 │   │   ├── Step1最小接口与任务清单附录-0v1.md
@@ -48,13 +52,14 @@ phase1/
 
 - `datasets/raw/`：外部下载的原始数据，不纳入 git。
 - `docs/`：阶段计划、设计说明、实验记录等文档。
+- `docs/structure-miner/`：旧实验路线的 brainstorming 补充与历史材料，不作为正式理论或正式实验规范。
 - `docs/step1/`：Step 1 冻结边界、实现设计、接口附录、实验与验收报告。
 - `docs/step2/`：Step 2 设计、冻结边界、阶段验收与全量回归说明。
 - `src/step1/`：Step 1 冻结实现代码。
 - `src/step2/`：Step 2 当前主线实现代码，按 Layer 1-5、runner、utils 组织。
 - `tests/step1/`：Step 1 单元测试与接口冻结测试。
 - `tests/step2/`：Step 2 单元测试、runner 与报告链路测试。
-- `scripts/`：阶段内会反复使用的工具脚本。
+- `scripts/`：阶段内会反复使用的工具脚本，以及尚在孵化中的并行探索性算法路线。
 - `outputs/step1/`：Step 1 debug bundle、attributions、summary 等实验输出。
 - `outputs/step2/`：Step 2 中间批次、诊断与局部实验输出。
 - `outputs/phase9_full/`：当前 36 任务全量回归产物。
@@ -62,6 +67,9 @@ phase1/
 
 ## 当前关键入口
 
+- 理论纲领：[../docs/draft/可组合信息论.md](../docs/draft/可组合信息论.md)
+- 多预序探索包：[../experiments/multi_preorder_minimal_validation/多预序对象发现最小验证实验.md](../experiments/multi_preorder_minimal_validation/多预序对象发现最小验证实验.md)
+- 并行 SoftWTA 探索草案：[scripts/softWTA_softHebb_minimal_validation/SoftWTA 关系原型发现最小验证实验.md](scripts/softWTA_softHebb_minimal_validation/SoftWTA 关系原型发现最小验证实验.md)
 - 研究计划：[docs/第一阶段研究计划-0v1.md](docs/第一阶段研究计划-0v1.md)
 - 总架构：[docs/第一阶段算法架构-0v4.md](docs/第一阶段算法架构-0v4.md)
 - Step 1 实验与验收报告：[docs/step1/Step1实验与验收报告-0v1.md](docs/step1/Step1实验与验收报告-0v1.md)

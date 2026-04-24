@@ -1,7 +1,9 @@
 {
   "schema_version": "0.9",
   "experiment_id": "multi_preorder_minimal_validation_v0_9",
-  "source_doc": "docs/draft/多预序对象发现最小验证实验.md",
+  "source_doc": "docs/draft/可组合信息论.md",
+  "experiment_doc": "experiments/multi_preorder_minimal_validation/多预序对象发现最小验证实验.md",
+  "package_status": "exploratory",
   "dataset": {
     "name": "ARC-AGI-2",
     "split": "training",
