@@ -53,10 +53,12 @@
 所以你可以把现在“MDL 最短即可”的想法，升级成：
 
 $$
-\text{Promote}(s) \propto
-\frac{\Delta \text{后验收缩} + \Delta \text{任务充分性} + \Delta \text{可分解性}}
-{\Delta \text{描述长度} + \Delta \text{搜索分支}}
+\mathrm{Promote}(s) \propto
+\frac{\Delta_{\mathrm{posterior\_shrink}} + \Delta_{\mathrm{task\_sufficiency}} + \Delta_{\mathrm{decomposability}}}
+{\Delta_{\mathrm{desc\_length}} + \Delta_{\mathrm{search\_branching}}}
 $$
+
+其中分子三项分别表示“后验收缩 / 任务充分性 / 可分解性”的增量，分母两项分别表示“描述长度 / 搜索分支”的增量。
 
 这不是现成论文公式，而是我认为最适合你系统的范畴信息几何翻译。
 
