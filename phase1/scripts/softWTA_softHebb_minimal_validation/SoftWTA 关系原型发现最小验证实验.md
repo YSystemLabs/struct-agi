@@ -224,7 +224,7 @@ r = 2
 定义 $K$ 个原型：
 
 $$
-P = {p_1,\dots,p_K}, \quad p_k \in \mathbb R^d
+P = \{p_1,\dots,p_K\}, \quad p_k \in \mathbb R^d
 $$
 
 其中 $d$ 是局部关系特征维度。
@@ -246,13 +246,11 @@ K = 16
 对每个局部关系向量 $z_u$，计算：
 
 $$
-s_k(u)=\mathrm{sim}(z_u,p_k)
+s_k(u) = \mathrm{sim}(z_u, p_k)
 $$
 
 $$
-r_k(u)=
-\frac{\exp(s_k(u)/\tau)}
-{\sum_{\ell=1}^K \exp(s_\ell(u)/\tau)}
+r_k(u) = \exp(s_k(u)/\tau) \big/ \sum_{\ell=1}^{K} \exp(s_\ell(u)/\tau)
 $$
 
 其中：
@@ -272,10 +270,7 @@ $$
 对每个 prototype：
 
 $$
-p_k \leftarrow \mathrm{normalize}
-\left(
-p_k + \eta \sum_u r_k(u)(z_u-p_k)
-\right)
+p_k \leftarrow \mathrm{normalize}\left( p_k + \eta \sum_u r_k(u)(z_u - p_k) \right)
 $$
 
 直观含义：
@@ -287,28 +282,19 @@ $$
 定义 winner：
 
 $$
-k^\star(u)=\arg\max_k r_k(u)
+k^\star(u) = \arg\max_k r_k(u)
 $$
 
 对非 winner prototype 加入弱 repulsion：
 
 $$
-p_k \leftarrow \mathrm{normalize}
-\left(
-p_k - \eta \gamma r_k(u)(z_u-p_k)
-\right),
-\quad k\neq k^\star(u)
+p_k \leftarrow \mathrm{normalize}\left( p_k - \eta \gamma\, r_k(u)(z_u - p_k) \right), \quad k \ne k^\star(u)
 $$
 
 或使用更稳定的 redundancy penalty：
 
 $$
-L_{\text{div}}
-=
-\sum_{i<j}
-\mathrm{sim}(p_i,p_j)^2
-\cdot
-\mathrm{overlap}(r_i,r_j)
+L_{\mathrm{div}} = \sum_{i<j} \mathrm{sim}(p_i, p_j)^2 \cdot \mathrm{overlap}(r_i, r_j)
 $$
 
 主实验建议先用 penalty 版本，比较稳定。
@@ -483,16 +469,12 @@ $$
 
 ## 10. 固定下游模板池
 
-下游模板池继承原实验，不允许因 SoftWTA 新增 primitive。
-
-$$
-\mathcal A_{\min} = \{\,\mathrm{identity},\ \mathrm{translate},\ \mathrm{recolor},\ \mathrm{delete},\ \mathrm{crop\_selected\_bbox}\,\}
-$$
+下游模板池继承原实验，不允许因 SoftWTA 新增 primitive。记最小模板池为 $\mathcal A_{\min}$，其五个固定一元原语为：`identity`、`translate`、`recolor`、`delete`、`crop_selected_bbox`。
 
 候选程序统一写成：
 
 $$
-\pi = \mathrm{select}(S); T; R
+\pi = \mathrm{select}(S);\ T;\ R
 $$
 
 其中：
@@ -555,44 +537,22 @@ $$
 训练评分：
 
 $$
-J_{\text{train}}(e)
-=
-L_{\text{res}}(e)
-+
-\lambda_1 L_{\text{prog}}(e)
-+
-\lambda_2 L_{\text{hyp}}(e)
-+
-\lambda_3 L_{\text{proto}}(e)
-+
-\lambda_4 L_{\text{redun}}(e)
+J_{\mathrm{train}}(e) = L_{\mathrm{res}}(e) + \lambda_1 L_{\mathrm{prog}}(e) + \lambda_2 L_{\mathrm{hyp}}(e) + \lambda_3 L_{\mathrm{proto}}(e) + \lambda_4 L_{\mathrm{redun}}(e)
 $$
 
 其中：
 
 ### 11.1 residual loss
 
-$$
-L_{\text{res}}
-$$
-
-对拟合集 $n-1$ 个 train pairs 的输出残差。
+$L_{\mathrm{res}}$：对拟合集 $n-1$ 个 train pairs 的输出残差。
 
 ### 11.2 program complexity
 
-$$
-L_{\text{prog}}
-$$
-
-程序长度、模板类型复杂度、参数复杂度。
+$L_{\mathrm{prog}}$：程序长度、模板类型复杂度、参数复杂度。
 
 ### 11.3 hypothesis complexity
 
-$$
-L_{\text{hyp}}
-$$
-
-感知假设复杂度，包括：
+$L_{\mathrm{hyp}}$：感知假设复杂度，包括：
 
 ```text
 patch radius
@@ -603,24 +563,12 @@ color role normalization mode
 
 ### 11.4 prototype complexity
 
-$$
-L_{\text{proto}}
-=
-\log K
-+ \#\text{active prototypes}
-+ \text{quantized temperature code length}
-$$
+$L_{\mathrm{proto}} = \log K + N_{\mathrm{act}} + \ell_\tau$，其中 $N_{\mathrm{act}}$ 是活跃 prototype 数（`active_prototypes`），$\ell_\tau$ 是温度参数离散化后的码长（`quantized_temperature_code_length`）。
 
 ### 11.5 redundancy penalty
 
 $$
-L_{\text{redun}}
-=
-\frac{1}{K(K-1)}
-\sum_{i\ne j}
-\mathrm{sim}(p_i,p_j)^2
-\cdot
-\mathrm{overlap}(r_i,r_j)
+L_{\mathrm{redun}} = \frac{1}{K(K-1)} \sum_{i \ne j} \mathrm{sim}(p_i, p_j)^2 \cdot \mathrm{overlap}(r_i, r_j)
 $$
 
 这个项只用于诊断或辅评分。主结果应同时报告有无该项。
@@ -632,27 +580,27 @@ $$
 对每个任务：
 
 $$
-{(X_1,Y_1),\dots,(X_n,Y_n)}
+\{(X_1, Y_1), \dots, (X_n, Y_n)\}
 $$
 
 每次留出一个 pair：
 
 $$
-(X_j,Y_j)
+(X_j, Y_j)
 $$
 
 拟合集为：
 
 $$
-D_{-j}={(X_i,Y_i)\mid i\ne j}
+D_{-j} = \{(X_i, Y_i) \mid i \ne j\}
 $$
 
 对每个方法 $r\in R$：
 
 1. 在 $D_{-j}$ 上学习或枚举对象表示；
 2. 在 $D_{-j}$ 上枚举候选程序；
-3. 按 $J_{\text{train}}$ 排序；
-4. 保留前 $K_{\text{beam}}$ 个候选；
+3. 按 $J_{\mathrm{train}}$ 排序；
+4. 保留前 $K_{\mathrm{beam}}$ 个候选；
 5. 使用 top-1 候选在 $X_j$ 上预测；
 6. 与 $Y_j$ 比较。
 
@@ -688,16 +636,7 @@ K_beam ∈ {8, 16}
 对候选解释定义：
 
 $$
-\sigma(e)
-=
-(
-\mathrm{tmpl}(\pi),
-\mathrm{sel}(\pi),
-\mathrm{render}(\pi),
-\widetilde{\theta}(\pi),
-\widetilde{h},
-\widetilde{P}
-)
+\sigma(e) = (\mathrm{tmpl}(\pi),\ \mathrm{sel}(\pi),\ \mathrm{render}(\pi),\ \widetilde{\theta}(\pi),\ \widetilde{h},\ \widetilde{P})
 $$
 
 其中 $\widetilde{P}$ 是 prototype bank 的规范摘要。
@@ -724,15 +663,7 @@ $$
 定义：
 
 $$
-\mathrm{Eq}_K
-=
-\frac{
-|{\sigma(e)\mid e\in E_K}
-\cap
-{\sigma(e')\mid e'\in E'_K}|
-}{
-K
-}
+\mathrm{Eq}_K = \big|\,\{\sigma(e)\mid e\in E_K\} \cap \{\sigma(e')\mid e'\in E'_K\}\,\big| \big/ K
 $$
 
 主报告：
@@ -780,11 +711,7 @@ no_regression_count
 #### utilization
 
 $$
-U
-=
-\exp\left(
--\sum_k \bar r_k \log \bar r_k
-\right)
+U = \exp\left( -\sum_k \bar r_k \log \bar r_k \right)
 $$
 
 表示有效使用了多少 prototype。
@@ -792,13 +719,7 @@ $$
 #### redundancy
 
 $$
-D_{\text{redun}}
-=
-\frac{1}{K(K-1)}
-\sum_{i\ne j}
-\mathrm{sim}(p_i,p_j)^2
-\cdot
-\mathrm{overlap}(r_i,r_j)
+D_{\mathrm{redun}} = \frac{1}{K(K-1)} \sum_{i \ne j} \mathrm{sim}(p_i, p_j)^2 \cdot \mathrm{overlap}(r_i, r_j)
 $$
 
 #### seed stability
@@ -858,20 +779,8 @@ M = softwta_antihebb_relation_proto
 
 满足以下条件，可认为 SoftWTA 结构发现通过最小验证：
 
-1. 对至少一半普通基线 $b\in B$，有：
-
-$$
-W_{\text{em}}(b)\ge 0.5
-$$
-
-2. 相对普通基线平均 pixel gain 为正：
-
-$$
-\frac{1}{|B|}
-\sum_{b\in B}
-\Delta_{\text{acc}}(b) > 0
-$$
-
+1. 对至少一半普通基线 $b\in B$，有 $W_{\mathrm{em}}(b) \ge 0.5$；
+2. 相对普通基线平均 pixel gain 为正，即 $\tfrac{1}{|B|} \sum_{b\in B} \Delta_{\mathrm{acc}}(b) > 0$；
 3. 扰动稳定性不低于普通基线平均：
 
 ```text
