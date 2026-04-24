@@ -150,13 +150,13 @@ SoftWTA 不直接吃 raw pixel。
 
 原因是 raw color id 很容易导致伪结构。输入应是局部关系特征，即前语义关系场。
 
-对每个格子或 patch 中心 (u)，构造：
+对每个格子或 patch 中心 $u$，构造：
 
-[
+$$
 z_u \in \mathbb R^d
-]
+$$
 
-其中 (z_u) 来自以下特征。
+其中 $z_u$ 来自以下特征。
 
 ### 6.1 最小特征族
 
@@ -193,7 +193,7 @@ multi_preorder_rank_vector
 r ∈ {1, 2}
 ```
 
-也就是 (3\times3) 与 (5\times5) 两种局部视野。
+也就是 $3\times3$ 与 $5\times5$ 两种局部视野。
 
 主实验先用：
 
@@ -221,13 +221,13 @@ r = 2
 
 ### 7.1 原型集合
 
-定义 (K) 个原型：
+定义 $K$ 个原型：
 
-[
+$$
 P = {p_1,\dots,p_K}, \quad p_k \in \mathbb R^d
-]
+$$
 
-其中 (d) 是局部关系特征维度。
+其中 $d$ 是局部关系特征维度。
 
 建议主实验：
 
@@ -243,23 +243,23 @@ K = 16
 
 ### 7.2 soft responsibility
 
-对每个局部关系向量 (z_u)，计算：
+对每个局部关系向量 $z_u$，计算：
 
-[
+$$
 s_k(u)=\operatorname{sim}(z_u,p_k)
-]
+$$
 
-[
+$$
 r_k(u)=
 \frac{\exp(s_k(u)/\tau)}
 {\sum_{\ell=1}^K \exp(s_\ell(u)/\tau)}
-]
+$$
 
 其中：
 
-* (r_k(u)) 是 prototype (k) 对位置 (u) 的 soft responsibility；
-* (\tau) 是温度；
-* (\operatorname{sim}) 可以先用 cosine similarity 或 negative squared distance。
+* $r_k(u)$ 是 prototype $k$ 对位置 $u$ 的 soft responsibility；
+* $\tau$ 是温度；
+* $\operatorname{sim}$ 可以先用 cosine similarity 或 negative squared distance。
 
 建议温度网格：
 
@@ -271,12 +271,12 @@ r_k(u)=
 
 对每个 prototype：
 
-[
+$$
 p_k \leftarrow \operatorname{normalize}
 \left(
 p_k + \eta \sum_u r_k(u)(z_u-p_k)
 \right)
-]
+$$
 
 直观含义：
 
@@ -286,31 +286,31 @@ p_k + \eta \sum_u r_k(u)(z_u-p_k)
 
 定义 winner：
 
-[
+$$
 k^\star(u)=\arg\max_k r_k(u)
-]
+$$
 
 对非 winner prototype 加入弱 repulsion：
 
-[
+$$
 p_k \leftarrow \operatorname{normalize}
 \left(
 p_k - \eta \gamma r_k(u)(z_u-p_k)
 \right),
 \quad k\neq k^\star(u)
-]
+$$
 
 或使用更稳定的 redundancy penalty：
 
-[
+$$
 L_{\text{div}}
-==============
+=
 
 \sum_{i<j}
 \operatorname{sim}(p_i,p_j)^2
 \cdot
 \operatorname{overlap}(r_i,r_j)
-]
+$$
 
 主实验建议先用 penalty 版本，比较稳定。
 
@@ -318,12 +318,12 @@ L_{\text{div}}
 
 每个 LOO fold 中：
 
-1. 只使用拟合集的 (n-1) 个 train pairs；
+1. 只使用拟合集的 $n-1$ 个 train pairs；
 2. 使用这些 pairs 的 input 和 output 网格学习 prototype；
 3. 冻结 prototype bank；
-4. 对留出的 (X_j) 只做 inference，不用 (Y_j) 学习 prototype。
+4. 对留出的 $X_j$ 只做 inference，不用 $Y_j$ 学习 prototype。
 
-禁止使用留出输出 (Y_j)。
+禁止使用留出输出 $Y_j$。
 
 可以另做一个 transductive ablation：
 
@@ -343,19 +343,19 @@ SoftWTA 输出的是 activation map，不是对象。
 
 ### 8.1 activation map
 
-对每个 prototype (k)，得到：
+对每个 prototype $k$，得到：
 
-[
+$$
 A_k(u)=r_k(u)
-]
+$$
 
 ### 8.2 threshold
 
 对每个 activation map，取候选 mask：
 
-[
+$$
 M_{k,\theta}={u\mid A_k(u)\ge \theta}
-]
+$$
 
 阈值来自固定小网格：
 
@@ -446,7 +446,7 @@ R = {
 
 ### 9.3 raw_feature_kmeans
 
-使用同样的 (z_u)，但直接 k-means，不使用 soft responsibility，也不使用 Hebbian/anti-Hebbian 更新。
+使用同样的 $z_u$，但直接 k-means，不使用 soft responsibility，也不使用 Hebbian/anti-Hebbian 更新。
 
 用途：
 
@@ -456,9 +456,9 @@ R = {
 
 每个位置只分配给最近 prototype：
 
-[
+$$
 r_k(u)\in{0,1}
-]
+$$
 
 用途：
 
@@ -486,30 +486,29 @@ r_k(u)\in{0,1}
 
 下游模板池继承原实验，不允许因 SoftWTA 新增 primitive。
 
-[
+$$
 \mathcal A_{\min}
-=================
-
-{
-\text{identity},
-\text{translate},
-\text{recolor},
-\text{delete},
-\text{crop_selected_bbox}
-}
-]
+=
+\left\{
+\text{identity},\,
+\text{translate},\,
+\text{recolor},\,
+\text{delete},\,
+\text{crop\_selected\_bbox}
+\right\}
+$$
 
 候选程序统一写成：
 
-[
+$$
 \pi = \operatorname{select}(S); T; R
-]
+$$
 
 其中：
 
-* (\operatorname{select}(S))：固定选择器白名单；
-* (T\in\mathcal A_{\min})：固定一元模板变换；
-* (R)：固定渲染方式。
+* $\operatorname{select}(S)$：固定选择器白名单；
+* $T\in\mathcal A_{\min}$：固定一元模板变换；
+* $R$：固定渲染方式。
 
 ### 10.1 selector 白名单
 
@@ -551,16 +550,16 @@ crop_selected_bbox
 
 单个候选解释：
 
-[
+$$
 e=(r,h,P,\pi)
-]
+$$
 
 其中：
 
-* (r)：表示方法；
-* (h)：感知假设；
-* (P)：prototype bank，如果方法不使用 prototype，则为空；
-* (\pi)：候选程序。
+* $r$：表示方法；
+* $h$：感知假设；
+* $P$：prototype bank，如果方法不使用 prototype，则为空；
+* $\pi$：候选程序。
 
 训练评分：
 
@@ -586,7 +585,7 @@ $$
 L_{\text{res}}
 $$
 
-对拟合集 (n-1) 个 train pairs 的输出残差。
+对拟合集 $n-1$ 个 train pairs 的输出残差。
 
 ### 11.2 program complexity
 
@@ -617,10 +616,8 @@ $$
 L_{\text{proto}}
 =
 \log K
-+
-#\text{active prototypes}
-+
-\text{quantized temperature code length}
++ \#\text{active prototypes}
++ \text{quantized temperature code length}
 $$
 
 ### 11.5 redundancy penalty
@@ -729,15 +726,15 @@ object count bucket
 
 对扰动前后的 top-K 候选集：
 
-[
+$$
 E_K(T,j,r)
-]
+$$
 
 定义：
 
-[
+$$
 \operatorname{Eq}_K
-===================
+=
 
 \frac{
 |{\sigma(e)\mid e\in E_K}
@@ -746,7 +743,7 @@ E_K(T,j,r)
 }{
 K
 }
-]
+$$
 
 主报告：
 
@@ -792,7 +789,7 @@ no_regression_count
 
 #### utilization
 
-[
+$$
 U
 =
 
@@ -800,22 +797,22 @@ U
 \left(
 -\sum_k \bar r_k \log \bar r_k
 \right)
-]
+$$
 
 表示有效使用了多少 prototype。
 
 #### redundancy
 
-[
+$$
 D_{\text{redun}}
-================
+=
 
 \frac{1}{K(K-1)}
 \sum_{i\ne j}
 \operatorname{sim}(p_i,p_j)^2
 \cdot
 \operatorname{overlap}(r_i,r_j)
-]
+$$
 
 #### seed stability
 
@@ -874,19 +871,19 @@ M = softwta_antihebb_relation_proto
 
 满足以下条件，可认为 SoftWTA 结构发现通过最小验证：
 
-1. 对至少一半普通基线 (b\in B)，有：
+1. 对至少一半普通基线 $b\in B$，有：
 
-[
+$$
 W_{\text{em}}(b)\ge 0.5
-]
+$$
 
 2. 相对普通基线平均 pixel gain 为正：
 
-[
+$$
 \frac{1}{|B|}
 \sum_{b\in B}
 \Delta_{\text{acc}}(b) > 0
-]
+$$
 
 3. 扰动稳定性不低于普通基线平均：
 
@@ -1320,7 +1317,7 @@ MDL/residual → final filtering
 
 处理：
 
-* 降低 (\gamma)；
+* 降低 $\gamma$；
 * 从 hard repulsion 改成 soft penalty；
 * 只在晋升阶段做去冗余，不在候选生成阶段做强 repulsion。
 
