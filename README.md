@@ -35,9 +35,11 @@ structuralist-agi/
 ├── experiments/
 │   └── multi_preorder_minimal_validation/
 │       ├── 多预序对象发现最小验证实验.md
+│       ├── 多预序对象发现最小验证实验报告-0v1.md
 │       ├── appendix_a_tasks.v0_9.json
 │       ├── appendix_b_config.v0_9.json
-│       └── validation_report.v0_9.json
+│       ├── validation_report.v0_9.json
+│       └── validation_manifest.v0_9.json
 ├── 研究宣言-0v2.md                # 研究方向与基本立场
 ├── 公开数据集选择方案-0v1.md       # 数据集选型记录
 ├── 项目评估-claude.md             # 外部评估
@@ -62,6 +64,7 @@ structuralist-agi/
 | [研究宣言](研究宣言-0v2.md) | 为什么需要结构主义路径，范畴论视角的动机 |
 | [可组合信息论](docs/draft/可组合信息论.md) | 对既有工程实践的理论综合，以及后续 Phase A-D 的正式纲领 |
 | [多预序对象发现最小验证实验](experiments/multi_preorder_minimal_validation/多预序对象发现最小验证实验.md) | 理论启发的探索性最小验证包，用于判断多预序路线是否值得继续保留 |
+| [多预序对象发现最小验证实验报告](experiments/multi_preorder_minimal_validation/多预序对象发现最小验证实验报告-0v1.md) | canonical rerun 的叙述性结果总结、formal verdict 与冻结决定 |
 | [SoftWTA 关系原型发现最小验证实验](phase1/scripts/softWTA_softHebb_minimal_validation/SoftWTA 关系原型发现最小验证实验.md) | 并行探索中的另一条自动对象发现路线草案 |
 | [Phase 1 研究计划](phase1/docs/第一阶段研究计划-0v1.md) | 研究边界、假设、方法框架、评测指标、成功标准 |
 | [Phase 1 算法架构](phase1/docs/第一阶段算法架构-0v4.md) | 五层架构、DSL、MDL 筛选、渐进增长、知识改写 |

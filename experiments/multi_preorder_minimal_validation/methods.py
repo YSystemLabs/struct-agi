@@ -9,6 +9,7 @@ from typing import Any
 from common import (
     Grid,
     ObjectData,
+    SegmentationPlan,
     bbox_from_pixels,
     color_frequencies,
     foreground_cells,
@@ -19,9 +20,7 @@ from common import (
     resolve_background_color,
 )
 from configs import AppendixBConfig, PrimaryTaskEntry
-from phase1.src.step2.data.models import SegmentationPlan
-from phase1.src.step2.layer1.objects import extract_cc_objects
-from phase1.src.step2.layer1.relations import extract_relations
+from local_step2 import extract_cc_objects, extract_relations
 
 
 DIRECTIONS_4 = ((-1, 0), (1, 0), (0, -1), (0, 1))

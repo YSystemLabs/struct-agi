@@ -1,0 +1,91 @@
+{
+  "canonical_artifacts": {
+    "manifest": {
+      "path": "experiments/multi_preorder_minimal_validation/validation_manifest.v0_9.json"
+    },
+    "report": {
+      "path": "experiments/multi_preorder_minimal_validation/validation_report.v0_9.json",
+      "sha256": "2bc6d42845b98185fd90d0ca98642fc8b04ef62b255dfe0973b65c307119e1b9"
+    }
+  },
+  "experiment_id": "multi_preorder_minimal_validation_v0_9",
+  "formal_verdict": {
+    "criteria": {
+      "criterion_1_exact_win_rate": {
+        "paired_exact_match_win_rate": {
+          "bbox": 0.5573770491803278,
+          "cc4": 0.5163934426229508,
+          "cc8": 0.5163934426229508,
+          "raw_local_feature_clustering": 0.5
+        },
+        "passed": true,
+        "required_baselines": 2,
+        "threshold": 0.5
+      },
+      "criterion_2_mean_accuracy_gain": {
+        "baseline_mean_accuracy_gain": 0.018361322951486885,
+        "paired_mean_pixel_accuracy_gain": {
+          "bbox": 0.04480190899394646,
+          "cc4": -0.01169066253375387,
+          "cc8": 0.040334045345754944,
+          "raw_local_feature_clustering": 0.0
+        },
+        "passed": true
+      },
+      "criterion_3_secondary_endpoints": {
+        "passed": false,
+        "robustness": {
+          "baseline_average": 0.5766559829059829,
+          "direction": "higher_is_better",
+          "metric": "robust_equivalence_rate",
+          "multi_preorder": 0.65625,
+          "relation": "strictly_better"
+        },
+        "shared_compression": {
+          "baseline_average": 1.3197405787799057,
+          "direction": "lower_is_better",
+          "metric": "mean_top1_train_j_score",
+          "multi_preorder": 1.4181621877079322,
+          "relation": "worse"
+        }
+      }
+    },
+    "passes_formal_threshold": false,
+    "status": "primary-supported-secondary-failed"
+  },
+  "generated_at_utc": "2026-04-26T04:22:20.323056+00:00",
+  "inputs": {
+    "appendix_a": {
+      "path": "experiments/multi_preorder_minimal_validation/appendix_a_tasks.v0_9.json",
+      "sha256": "b63eff7486dfc11f073d646501449afdb5748f2b7051e7b481ed5abccb03ae7e"
+    },
+    "appendix_b": {
+      "path": "experiments/multi_preorder_minimal_validation/appendix_b_config.v0_9.json",
+      "sha256": "593cc337913ec7faf05b6fd089ee9c926174f0cf9adb2cb50b6224de67b710a0"
+    },
+    "experiment_doc": "experiments/multi_preorder_minimal_validation/多预序对象发现最小验证实验.md",
+    "source_doc": "docs/draft/可组合信息论.md"
+  },
+  "package_status": "exploratory",
+  "provenance": {
+    "command": [
+      "/usr/bin/python3",
+      "/home/laole/ai/structuralist-agi/experiments/multi_preorder_minimal_validation/run_validation.py",
+      "--output",
+      "experiments/multi_preorder_minimal_validation/validation_report.v0_9.json",
+      "--manifest-output",
+      "experiments/multi_preorder_minimal_validation/validation_manifest.v0_9.json"
+    ],
+    "cwd": "/home/laole/ai/structuralist-agi",
+    "generated_at_utc": "2026-04-26T04:22:20.323056+00:00",
+    "git_branch": "main",
+    "git_commit": "57ab0e290c430611107123de261562fd24afe918",
+    "platform": "Linux-5.15.137.3-microsoft-standard-WSL2-x86_64-with-glibc2.35",
+    "python_version": "3.10.12",
+    "requested_manifest_output": "experiments/multi_preorder_minimal_validation/validation_manifest.v0_9.json",
+    "requested_output": "experiments/multi_preorder_minimal_validation/validation_report.v0_9.json",
+    "runner": "experiments/multi_preorder_minimal_validation/run_validation.py",
+    "working_tree_dirty": true
+  },
+  "schema_version": "0.9"
+}

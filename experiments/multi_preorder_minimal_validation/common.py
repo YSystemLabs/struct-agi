@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import sys
 from collections import Counter
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
@@ -10,11 +9,8 @@ from typing import Any
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
-from phase1.src.step2.data.models import Grid, ObjectData  # noqa: E402
-from phase1.src.step2.layer4.render import render_objects  # noqa: E402
+from local_step2 import Grid, ObjectData, SegmentationPlan, render_objects
 
 
 def to_jsonable(value: Any) -> Any:

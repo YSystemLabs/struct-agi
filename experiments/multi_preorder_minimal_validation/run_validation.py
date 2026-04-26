@@ -1,6 +1,11 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import platform
+import subprocess
+import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from statistics import mean
 from typing import Any
@@ -15,6 +20,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_APPENDIX_A = SCRIPT_DIR / "appendix_a_tasks.v0_9.json"
 DEFAULT_APPENDIX_B = SCRIPT_DIR / "appendix_b_config.v0_9.json"
 DEFAULT_OUTPUT = SCRIPT_DIR / "validation_report.v0_9.json"
+DEFAULT_MANIFEST = SCRIPT_DIR / "validation_manifest.v0_9.json"
 
 
 def main() -> None:
@@ -23,6 +29,7 @@ def main() -> None:
     appendix_b = load_appendix_b(args.appendix_b)
     requested_methods = _parse_csv(args.methods) or list(appendix_b.comparison_methods)
     requested_tasks = _parse_csv(args.tasks)
+    provenance = build_provenance(args)
 
     task_entries = [entry for entry in appendix_a.primary_tasks if not requested_tasks or entry.task_id in requested_tasks]
     if args.limit is not None:
@@ -31,9 +38,13 @@ def main() -> None:
     method_hypotheses = {method: build_method_hypotheses(appendix_b, method) for method in requested_methods}
     report = {
         "experiment_id": appendix_b.experiment_id,
+        "package_status": appendix_b.package_status,
+        "source_doc": appendix_b.source_doc,
+        "experiment_doc": appendix_b.experiment_doc,
         "appendix_a": str(args.appendix_a.relative_to(REPO_ROOT)),
         "appendix_b": str(args.appendix_b.relative_to(REPO_ROOT)),
         "train_objective_proxy": resolve_train_objective_proxy(appendix_b),
+        "provenance": provenance,
         "methods": requested_methods,
         "tasks": [],
     }
@@ -54,6 +65,8 @@ def main() -> None:
     report["summary"] = build_summary(report["tasks"], requested_methods, appendix_b)
     report["formal_verdict"] = build_formal_verdict(report["summary"], report["tasks"], requested_methods, appendix_b)
     write_json(args.output, report)
+    manifest = build_manifest(args.output, args.manifest_output, args.appendix_a, args.appendix_b, appendix_b, report)
+    write_json(args.manifest_output, manifest)
     if report["formal_verdict"] is not None:
         print(
             "Formal verdict: "
@@ -61,6 +74,7 @@ def main() -> None:
             f"(pass={report['formal_verdict']['passes_formal_threshold']})"
         )
     print(f"Wrote report to {args.output}")
+    print(f"Wrote manifest to {args.manifest_output}")
 
 
 def evaluate_task(
@@ -401,9 +415,109 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--methods", type=str, default="")
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument("--manifest-output", type=Path, default=DEFAULT_MANIFEST)
     parser.add_argument("--skip-perturbations", action="store_true")
     parser.add_argument("--max-folds", type=int, default=None)
     return parser.parse_args()
+
+
+def build_provenance(args: argparse.Namespace) -> dict[str, Any]:
+    return {
+        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "command": [sys.executable, str(SCRIPT_DIR / "run_validation.py"), *sys.argv[1:]],
+        "cwd": str(Path.cwd()),
+        "runner": _path_text(SCRIPT_DIR / "run_validation.py"),
+        "python_version": platform.python_version(),
+        "platform": platform.platform(),
+        "git_commit": _git_stdout("rev-parse", "HEAD"),
+        "git_branch": _git_stdout("rev-parse", "--abbrev-ref", "HEAD"),
+        "working_tree_dirty": _git_is_dirty(),
+        "requested_output": str(args.output),
+        "requested_manifest_output": str(args.manifest_output),
+    }
+
+
+def build_manifest(
+    output_path: Path,
+    manifest_path: Path,
+    appendix_a_path: Path,
+    appendix_b_path: Path,
+    appendix_b: AppendixBConfig,
+    report: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "schema_version": appendix_b.schema_version,
+        "experiment_id": appendix_b.experiment_id,
+        "package_status": appendix_b.package_status,
+        "generated_at_utc": report["provenance"]["generated_at_utc"],
+        "canonical_artifacts": {
+            "report": {
+                "path": _path_text(output_path),
+                "sha256": _sha256(output_path),
+            },
+            "manifest": {
+                "path": _path_text(manifest_path),
+            },
+        },
+        "inputs": {
+            "appendix_a": {
+                "path": _path_text(appendix_a_path),
+                "sha256": _sha256(appendix_a_path),
+            },
+            "appendix_b": {
+                "path": _path_text(appendix_b_path),
+                "sha256": _sha256(appendix_b_path),
+            },
+            "source_doc": appendix_b.source_doc,
+            "experiment_doc": appendix_b.experiment_doc,
+        },
+        "formal_verdict": report["formal_verdict"],
+        "provenance": report["provenance"],
+    }
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _path_text(path: Path) -> str:
+    try:
+        return str(path.resolve().relative_to(REPO_ROOT))
+    except ValueError:
+        return str(path.resolve())
+
+
+def _git_stdout(*args: str) -> str | None:
+    try:
+        completed = subprocess.run(
+            ["git", *args],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return None
+    value = completed.stdout.strip()
+    return value or None
+
+
+def _git_is_dirty() -> bool | None:
+    try:
+        completed = subprocess.run(
+            ["git", "status", "--short"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return None
+    return bool(completed.stdout.strip())
 
 
 def _apply_color_permutation(task: dict[str, Any]) -> dict[str, Any]:

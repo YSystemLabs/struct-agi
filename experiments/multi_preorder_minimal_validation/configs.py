@@ -39,6 +39,8 @@ class AppendixBConfig:
     schema_version: str
     experiment_id: str
     source_doc: str
+    experiment_doc: str | None
+    package_status: str | None
     comparison_methods: tuple[str, ...]
     protocol: dict[str, Any]
     observable_task_gate: dict[str, Any]
@@ -92,6 +94,8 @@ def load_appendix_b(path: Path) -> AppendixBConfig:
         schema_version=str(payload["schema_version"]),
         experiment_id=str(payload["experiment_id"]),
         source_doc=str(payload["source_doc"]),
+        experiment_doc=str(payload.get("experiment_doc")) if payload.get("experiment_doc") is not None else None,
+        package_status=str(payload.get("package_status")) if payload.get("package_status") is not None else None,
         comparison_methods=tuple(payload["comparison_methods"]),
         protocol=dict(payload["protocol"]),
         observable_task_gate=dict(payload["observable_task_gate"]),
