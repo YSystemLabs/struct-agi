@@ -1,7 +1,9 @@
 # SoftHebb / SoftWTA 关系原型分层最小验证方案
 
 > 版本：v0.2
+>
 > 状态：ARC-AGI-2 静态分层最小验证方案草案
+>
 > 目标：把“论文忠实复现型验证”和“工程启发型 ARC 前端探索”拆开：先评估 SoftHebb 论文机制能否在无多预序偏置、input-only 的 ARC 关系场上形成稳定 proto-structure；再评估 SoftWTA / SoftHebb 风格原型学习与 multi-preorder 结合后，是否能补强固定模板求解。
 
 ---
@@ -341,19 +343,31 @@ $$
 k^\star(u) = \arg\max_k r_k(u)
 $$
 
-对 winner 做正向 Hebbian 更新：
+由于这里的输入是 ARC 的 relation-field vectors，而不是原论文中的卷积视觉特征，本方案不把 faithful 更新写成看似精确、实际仍有实现歧义的闭式公式，而改用 operational pseudocode 表示：
 
-$$
-p_{k^\star} \leftarrow \mathrm{normalize}\left( p_{k^\star} + \eta_{k^\star}(u)(z_u - p_{k^\star}) \right)
-$$
+```python
+for z in samples:
+  r = softmax(sim(z, P) / tau)
+  k_star = argmax(r)
 
-对 non-winner 做 soft anti-Hebbian 更新：
+  for k in range(K):
+    eta_k = adaptive_lr(P[k], base_eta)
 
-$$
-p_k \leftarrow \mathrm{normalize}\left( p_k - \eta_k(u)\, \gamma\, r_k(u)(z_u - p_k) \right), \quad k \ne k^\star(u)
-$$
+    if k == k_star:
+      # winner positive Hebbian
+      delta = + eta_k * (z - P[k])
+    else:
+      # non-winner soft anti-Hebbian
+      delta = - eta_k * gamma * r[k] * (z - P[k])
 
-其中 $\eta_k(u)$ 不是常数，而应实现论文强调的自适应学习率机制；如果暂时没有实现 adaptive learning rate，则该方法名必须降级为：
+    P[k] = normalize(P[k] + delta)
+```
+
+这里的 `softhebb_faithful_proto` 指的是一种 operational faithful approximation：
+
+> This is an operational faithful approximation, not an exact derivation of the convolutional SoftHebb layer in the original paper.
+
+也就是说，它保留的是论文里最关键的四个机制，而不是声称逐项复刻原论文中的卷积层结构。如果暂时没有实现 adaptive learning rate，则该方法名必须降级为：
 
 ```text
 softhebb_like_proto
@@ -519,6 +533,8 @@ R_sys = {
 
 其中 `cc4 / cc8 / bbox` 是传统对象化基线，`multi_preorder_v0_baseline` 是强结构偏置基线。
 
+本文中 `multi_preorder_v0_baseline` 默认指向冻结的 multi-preorder formal v0.9 快照。如果将来改用新的冻结版本，必须显式改名为 `multi_preorder_v0_10_baseline` 等，而不能静默覆盖原基线。
+
 ### 9.3 hybrid 方法
 
 ```text
@@ -674,7 +690,7 @@ $$
 1. 在 $D_{-j}$ 与 $X_j$ 上推断 prototype assignment / activation；
 1. 生成 proto-object candidates；
 1. 记录 representation metrics、perturbation metrics 与 oracle-style candidate coverage；
-1. 可选地把这些 candidates 接到 fixed-template search，作为 secondary downstream check。
+1. 如果 `representation_min_pass` 成立，则必须把这些 candidates 接到 fixed-template search，运行 mandatory secondary downstream check。
 
 ### 12.2 实验 B：engineering / hybrid validation
 
@@ -774,16 +790,21 @@ EqK_median
 
 实验 A 的主比较不先看 exact / pixel，而先看表示层是否真的学到更稳定的候选结构。
 
-主指标：
+Stage 0 主指标：
 
 ```text
 prototype_utilization
 prototype_redundancy
-seed_stability
 perturbation_stability
 proto_object_coverage
 oracle_topK_candidate
 oracle_object_coverage
+```
+
+Stage 1 小范围鲁棒性阶段，在 `random_seeds >= 3` 时再启用：
+
+```text
+seed_stability
 ```
 
 #### prototype utilization
@@ -810,6 +831,52 @@ downstream_exact_variance
 downstream_pixel_variance
 ```
 
+当 `num_seeds < 3` 时，`seed_stability` 记为 `N/A`，不进入 Stage 0 主结果聚合。
+
+#### oracle diagnostics
+
+ARC 没有官方 object ground truth，因此：
+
+```text
+oracle_topK_candidate
+oracle_object_coverage
+```
+
+都只能被视为 pseudo-oracle diagnostics，而不是 ARC 官方标注指标。
+
+主协议默认采用两类 pseudo-oracle 来源：
+
+```text
+A. derived_oracle_from_successful_template
+B. delta_region_oracle
+```
+
+其中：
+
+* `derived_oracle_from_successful_template`：如果固定模板池中存在能完美解释拟合集 train pairs 的候选解释，则使用其 selected-object support 作为 pseudo-oracle；
+* `delta_region_oracle`：使用 input-output diff 所诱导的 changed-region support 及其 connected components 作为 pseudo-oracle；
+* `manual_oracle_subset` 只允许用于极小人工标注 sanity subset，不进入主结果。
+
+记某个 fold 的 pseudo-oracle 池为 $\mathcal O_{\mathrm{pseudo}}(T,j)$。对任一 candidate object $c$，定义：
+
+$$
+\mathrm{oracle\_object\_coverage}(c) = \max_{o \in \mathcal O_{\mathrm{pseudo}}(T,j)} \mathrm{IoU}(c, o)
+$$
+
+并定义：
+
+$$
+\mathrm{oracle\_topK\_candidate}(T,j) = \mathbf 1\left[\max_{c \in \mathrm{TopK},\, o \in \mathcal O_{\mathrm{pseudo}}(T,j)} \mathrm{IoU}(c, o) \ge \theta_{\mathrm{oracle}}\right]
+$$
+
+默认：
+
+```text
+theta_oracle = 0.5
+```
+
+如果某个 fold 上没有可用的 pseudo-oracle，则将该 fold 的 `oracle_*` 指标记为 `N/A`，并从对应聚合分母中排除。
+
 #### ablation contribution
 
 对 top-k prototype 逐个移除，记录：
@@ -825,7 +892,7 @@ downstream_pixel_variance
 
 ### 14.2 第二层：下游工程指标
 
-在实验 A 的 optional downstream check 和实验 B 的主协议中，记录：
+在实验 A 的 mandatory secondary downstream check 和实验 B 的主协议中，记录：
 
 ```text
 top-1 exact match count
@@ -906,11 +973,11 @@ oracle_topK_candidate / oracle_object_coverage
 1. 相比 `softwta_positive_only`，faithful 版本没有退化成“更复杂但更不稳定”的实现，即：
 
 ```text
-seed_stability 不更差
 representation 指标整体不更差
+当 num_seeds >= 3 时，seed_stability 不更差
 ```
 
-1. 接入 optional downstream fixed-template search 后，mean pixel accuracy 非负增益，且候选数量不爆炸：
+1. 当 1 和 2 成立时，必须触发 fixed-template search 的 downstream secondary check；在该 secondary check 中，mean pixel accuracy 非负增益，且候选数量不爆炸：
 
 ```text
 candidate_object_count_M <= 1.25 × mean(candidate_object_count_{raw,hard})
@@ -1164,6 +1231,11 @@ oracle_topK_candidate
 oracle_object_coverage
 ```
 
+其中：
+
+* `seed_stability` 只在 `num_seeds >= 3` 时有效；
+* `oracle_topK_candidate` 与 `oracle_object_coverage` 都是 pseudo-oracle diagnostics。
+
 ---
 
 ## 18. 配置示例
@@ -1221,16 +1293,26 @@ objectization:
   max_objects_per_grid: 32
 
 template_search:
-  enabled: false
+  enabled: true
+  mode: secondary_check_only
+  trigger: if_representation_min_pass
+  beam_k: 8
 
 reporting:
   primary:
     - prototype_utilization
     - prototype_redundancy
-    - seed_stability
     - perturbation_stability
     - proto_object_coverage
     - oracle_topK_candidate
+    - oracle_object_coverage
+  secondary:
+    - top1_exact
+    - pixel_accuracy
+    - candidate_object_count
+    - beam_shrink
+
+# seed_stability: N/A in Stage 0 because random_seeds = [0]
 ```
 
 ### 18.2 实验 B：小范围鲁棒性与 hybrid 工程验证
@@ -1239,6 +1321,9 @@ reporting:
 experiment_name: softhebb_hybrid_template_v0
 stage: downstream_engineering
 random_seeds: [0, 1, 2]
+
+comparison:
+  frozen_structured_baseline: multi_preorder_v0_baseline  # frozen formal v0.9 snapshot
 
 loo:
   enabled: true
@@ -1274,6 +1359,7 @@ reporting:
     - beam_shrink
     - EqK
     - top1_signature_stable_rate
+    - seed_stability
 ```
 
 ---
@@ -1301,8 +1387,11 @@ reporting:
   "prototype_redundancy": 0.18,
   "proto_object_coverage": 0.83,
   "oracle_topK_candidate": 0.75,
+  "oracle_object_coverage": 0.67,
+  "pseudo_oracle_sources": ["delta_region_oracle"],
   "EqK_color_perm_mean": 0.75,
   "EqK_padding_mean": 0.625,
+  "seed_stability": null,
   "top1_exact": null,
   "pixel_acc": null,
   "J_train": null,
